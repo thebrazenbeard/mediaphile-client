@@ -1,6 +1,6 @@
 # Unified Mediaphile UI — owner-approved platform contract
 
-**Decision date:** 2026-10-07  
+**Decision date:** 2026-10-07
 **Authority:** Live owner instruction supersedes platform-by-platform recommendations in Plex comparison research.
 
 ## One layout

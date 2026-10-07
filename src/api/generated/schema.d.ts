@@ -709,6 +709,8 @@ export interface operations {
                 q?: string;
                 cursor?: string;
                 limit?: number;
+                /** @description Filter by the authenticated user's own playback state. */
+                watchState?: "all" | "unplayed" | "in_progress" | "watched";
             };
             header?: never;
             path?: never;
