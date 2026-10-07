@@ -18,7 +18,7 @@ export function AppShell({server}:{server:ServerInfo}){
  return <div className="app-layout">
   <aside className="sidebar"><div className="logo" onClick={()=>navigate('/')} role="presentation"><span className="logo-symbol">M</span><div><strong>MEDIAPHILE</strong><small>YOUR PRIVATE CINEMA</small></div></div>
   <div className="sidebar-label">DISCOVER</div>
-  <nav aria-label="Main navigation">{tabs.map(([to,icon,label])=><NavLink key={to} to={to} end={to==='/'} data-focusable="true" className={({isActive})=>'nav-link'+(isActive?' active':'')}><span className="nav-icon" aria-hidden="true">{icon}</span><span>{label}</span></NavLink>)}</nav>
+  <nav aria-label="Main navigation">{tabs.map(([to,icon,label])=><NavLink key={to} to={to} end={to==='/'} aria-label={label} title={label} data-focusable="true" className={({isActive})=>'nav-link'+(isActive?' active':'')}><span className="nav-icon" aria-hidden="true">{icon}</span><span className="nav-text">{label}</span></NavLink>)}</nav>
   <div className="sidebar-footer"><div className="connection-dot"/><span>LOCAL NETWORK</span><small>SERVER ONLINE</small></div>
   </aside>
   <div className="app-main"><header className="topbar"><div className="breadcrumbs"><span className="eyebrow">MEDIAPHILE /</span> <span>{server.name}</span></div><div className="topbar-right"><span className="server-badge">● PRIVATE SERVER</span><span className="user-bubble" title={user.username}>{user.username.slice(0,1).toUpperCase()}</span><button className="quiet-btn" data-focusable onClick={()=>void onLogout()}>Sign out</button></div></header>

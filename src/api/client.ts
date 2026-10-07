@@ -55,7 +55,7 @@ export class ApiClient {
     return this.request<Library>('/api/v1/libraries','POST',{id,name,mediaType,rootPath})
   }
   scanLibrary(id:string){return this.request<Record<string,number>>('/api/v1/libraries/'+encodeURIComponent(id)+'/scan','POST',{})}
-  items(query: {libraryId?:string,kind?:Item['kind'],parentId?:string,q?:string,cursor?:string,limit?:number} = {}, signal?:AbortSignal) {
+  items(query: {libraryId?:string,kind?:Item['kind'],parentId?:string,q?:string,cursor?:string,limit?:number,watchState?:'all'|'unplayed'|'in_progress'|'watched'} = {}, signal?:AbortSignal) {
     const params = new URLSearchParams()
     for(const [k,v] of Object.entries(query)) if(v!==undefined && v!=='') params.set(k,String(v))
     return this.request<ItemPage>('/api/v1/items'+(params.size?'?'+params.toString():''),'GET',undefined,signal)

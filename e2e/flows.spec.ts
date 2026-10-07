@@ -91,3 +91,61 @@ test('unreachable local server offers manual reconnect',async({page})=>{
  await expect(page.getByRole('heading',{name:'Find your library.'})).toBeVisible()
  await expect(page.getByLabel('Server address')).toBeVisible()
 })
+
+test('one left navigation layout survives desktop and phone viewports',async({page})=>{
+ await fakeServer(page)
+ await login(page)
+ for(const viewport of [{width:1440,height:900},{width:390,height:844}]) {
+  await page.setViewportSize(viewport)
+  const rail=page.locator('aside.sidebar')
+  await expect(rail).toBeVisible()
+  const bounds=await rail.boundingBox()
+  expect(bounds).toBeTruthy()
+  expect(bounds!.x).toBe(0)
+  expect(bounds!.height).toBeGreaterThan(viewport.height-5)
+  await expect(rail.getByRole('link',{name:'Home'})).toBeVisible()
+  await expect(rail.getByRole('link',{name:'Movies'})).toBeVisible()
+  await expect(rail.getByRole('link',{name:'TV Shows'})).toBeVisible()
+  await expect(rail.getByRole('link',{name:'Search'})).toBeVisible()
+  await expect(rail.getByRole('link',{name:'Settings'})).toBeVisible()
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true)
+ }
+})
+
+test('library browse offers a library selector, watched filter and grid/list modes',async({page})=>{
+ await fakeServer(page)
+ await login(page)
+ await page.getByRole('link',{name:'Movies',exact:true}).click()
+ await expect(page.getByLabel('Library',{exact:true})).toBeVisible()
+ await expect(page.getByLabel('Watch status')).toBeVisible()
+ await page.getByLabel('Library',{exact:true}).selectOption('movies')
+ const request=page.waitForRequest(req=>req.url().includes('/api/v1/items')&&new URL(req.url()).searchParams.get('watchState')==='watched')
+ await page.getByLabel('Watch status').selectOption('watched')
+ await request
+ await page.getByRole('button',{name:'List view'}).click()
+ await expect(page.locator('.poster-list')).toBeVisible()
+ await page.getByRole('button',{name:'Grid view'}).click()
+ await expect(page.locator('.poster-grid')).toBeVisible()
+})
+
+test('large libraries are paginated instead of silently capped',async({page})=>{
+ await fakeServer(page)
+ await login(page)
+ const batch=Array.from({length:25},(_,i)=>({
+  id:'movie-'+i,libraryId:'movies',kind:'movie',title:'Film '+String(i).padStart(2,'0'),year:2020,unresolved:false
+ }))
+ await page.route('**/api/v1/items?**',async route=>{
+  const url=new URL(route.request().url())
+  if(url.searchParams.get('kind')!=='movie')return route.fallback()
+  const cursor=url.searchParams.get('cursor')
+  const pageItems=cursor==='next-page'?batch.slice(24):batch.slice(0,24)
+  await route.fulfill({contentType:'application/json',body:JSON.stringify({items:pageItems,nextCursor:cursor?'':'next-page'})})
+ })
+ await page.getByRole('link',{name:'Movies',exact:true}).click()
+ await expect(page.getByRole('link',{name:'Open Film 00'})).toBeVisible()
+ await expect(page.getByRole('link',{name:'Open Film 24'})).toHaveCount(0)
+ await page.getByRole('button',{name:'Load more'}).click()
+ await expect(page.getByRole('link',{name:'Open Film 24'})).toBeVisible()
+ await expect(page.getByRole('link',{name:'Open Film 00'})).toHaveCount(1)
+ await expect(page.getByRole('button',{name:'Load more'})).toHaveCount(0)
+})
