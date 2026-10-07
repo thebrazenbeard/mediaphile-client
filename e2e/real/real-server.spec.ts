@@ -45,4 +45,12 @@ test('real LAN server scans, authenticates, browses and plays synthetic video', 
   const progressResponse = await progressResponsePromise
   const progress = await progressResponse.json()
   expect(progress.positionMs).toBeGreaterThanOrEqual(1000)
+
+  await page.getByRole('button', { name: /EXIT PLAYER/ }).click()
+  await page.getByRole('link', { name: 'Home', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Continue Watching' })).toBeVisible()
+  const resumeLink = page.getByRole('link', { name: 'Resume Synthetic Film' })
+  await expect(resumeLink).toBeVisible()
+  await resumeLink.click()
+  await expect(page.getByLabel('Playing Synthetic Film')).toBeVisible()
 })

@@ -1,4 +1,4 @@
-import type { Capabilities, Item, ItemDetail, ItemPage, Library, PlaybackDecision, PlaybackSession, PlaybackState, ServerInfo, User } from './types'
+import type { Capabilities, Item, ItemDetail, ItemPage, Library, PlaybackDecision, PlaybackSession, PlaybackState, ContinueWatchingPage, ServerInfo, User } from './types'
 
 export class ApiError extends Error {
   constructor(public code: string, message: string, public status: number) { super(message); this.name = 'ApiError' }
@@ -73,6 +73,7 @@ export class ApiClient {
   endSession(id:string,reason='stopped'){
     return this.request<void>('/api/v1/playback/sessions/'+encodeURIComponent(id)+'?reason='+encodeURIComponent(reason),'DELETE')
   }
+  continueWatching(limit=12){return this.request<ContinueWatchingPage>('/api/v1/users/me/continue-watching?limit='+limit)}
   playbackState(itemId:string){return this.request<PlaybackState>('/api/v1/users/me/playback/'+encodeURIComponent(itemId))}
   putPlaybackState(itemId:string,resumeMs:number,completed:boolean){
     return this.request<PlaybackState>('/api/v1/users/me/playback/'+encodeURIComponent(itemId),'PUT',{resumeMs,completed})

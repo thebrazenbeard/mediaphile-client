@@ -12,3 +12,6 @@ export type Knowledge = components['schemas']['Knowledge']
 export type User = components['schemas']['User']
 export type MediaSource = components['schemas']['MediaSource']
 export type MediaPart = components['schemas']['MediaPart']
+
+export type ContinueWatchingPage = components['schemas']['ContinueWatchingPage']
+export type ContinueWatchingEntry = components['schemas']['ContinueWatchingEntry']
