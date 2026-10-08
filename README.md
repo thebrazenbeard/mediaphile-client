@@ -20,6 +20,7 @@ Read the [owner-approved unified UI contract](docs/UNIFIED_UI_CONTRACT.md) and [
 - Grid/List display preferences, 24-at-a-time cursor pagination, stable poster navigation.
 - D-pad/keyboard navigation with screen-reader labels; phone and desktop viewports share one shell.
 - Playback capabilities, Direct Play and HLS support, progress/session reporting.
+- **Continue Watching:** authenticated, resumable movie/episode cards appear on Home only for the local user's unfinished media, with a direct Resume action.
 
 ## Run it
 

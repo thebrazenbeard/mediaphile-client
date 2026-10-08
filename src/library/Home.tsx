@@ -1,6 +1,7 @@
 import{Link}from 'react-router-dom'
 import{useCatalog}from './useCatalog'
 import{MediaRow}from './components/MediaRow'
+import{ContinueWatching}from './ContinueWatching'
 export function Home(){
  const {items,loading,error}=useCatalog({limit:150})
  const movies=items.filter(i=>i.kind==='movie')
@@ -9,6 +10,7 @@ export function Home(){
  {error&&<div role="alert" className="form-error">{error}</div>}
  {loading&&<p className="muted">Loading your library…</p>}
  {!loading&&!error&&items.length===0&&<div className="empty-state"><strong>Your library is ready for its first scan.</strong><p>Add a media folder in Settings to start filling your collection.</p><Link className="primary" to="/settings" data-focusable>Set up a library →</Link></div>}
+ <ContinueWatching/>
  <MediaRow title="Your Movies" description="The big screen collection" items={movies.slice(0,18)}/>
  <MediaRow title="Television" description="Every season, every episode" items={shows.slice(0,18)}/>
  </div>

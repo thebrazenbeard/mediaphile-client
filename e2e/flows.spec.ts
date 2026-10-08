@@ -149,3 +149,20 @@ test('large libraries are paginated instead of silently capped',async({page})=>{
  await expect(page.getByRole('link',{name:'Open Film 00'})).toHaveCount(1)
  await expect(page.getByRole('button',{name:'Load more'})).toHaveCount(0)
 })
+
+test('home Continue Watching is driven by authenticated server playback state',async({page})=>{
+ await fakeServer(page)
+ await page.route('**/api/v1/users/me/continue-watching**',async route=>{
+  await route.fulfill({contentType:'application/json',body:JSON.stringify({items:[
+   {item:episode,resumeMs:125000,lastPlayedAt:'2026-10-07 15:00:00'},
+   {item:movie,resumeMs:30000,lastPlayedAt:'2026-10-06 15:00:00'}
+  ]})})
+ })
+ await login(page)
+ await expect(page.getByRole('heading',{name:'Continue Watching'})).toBeVisible()
+ await expect(page.getByRole('link',{name:/Resume Episode One/})).toBeVisible()
+ await expect(page.getByRole('link',{name:/Resume Arrival/})).toBeVisible()
+ await expect(page.getByText('2:05',{exact:true})).toBeVisible()
+ await page.getByRole('link',{name:/Resume Arrival/}).click()
+ await expect(page.getByLabel('Playing Arrival')).toBeVisible()
+})
