@@ -14,7 +14,11 @@ export class ApiClient {
   setToken(token: string) { this.token = token }
   getToken() { return this.token }
   clearToken() { this.token = '' }
-  url(path: string) { return new URL(path, this.baseURL).toString() }
+  url(path: string) {
+    const resolved = new URL(path, this.baseURL)
+    if (resolved.origin !== new URL(this.baseURL).origin) throw new Error("API request must use selected Mediaphile server origin")
+    return resolved.toString()
+  }
 
   async request<T>(path: string, method = 'GET', body?: unknown, signal?: AbortSignal): Promise<T> {
     const headers: Record<string,string> = { Accept: 'application/json' }
