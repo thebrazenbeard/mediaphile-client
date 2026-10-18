@@ -24,3 +24,21 @@ describe('ApiClient',()=>{
     await expect(api.serverInfo()).rejects.toBeInstanceOf(ApiError)
   })
 })
+
+describe('Subtitle API',()=>{
+ it('uses authenticated local review and installs by opaque candidate ID without source paths',async()=>{
+  const fetcher=vi.fn(async()=>new Response(JSON.stringify({items:[],total:0,offset:0,limit:25}),{status:200}))
+  const api=new ApiClient('http://127.0.0.1:8097',fetcher as typeof fetch)
+  api.setToken('local-session')
+  await api.subtitleOverview('lib 1')
+  await api.reviewSubtitles('part/1')
+  await api.installSubtitle('part/1','opaque-id')
+  const calls=fetcher.mock.calls as unknown as [string,RequestInit][]
+  expect(calls[0][0]).toContain('/api/v1/libraries/lib%201/subtitles')
+  expect(calls[1][0]).toContain('/api/v1/subtitles/parts/part%2F1')
+  expect(calls[2][0]).toContain('/api/v1/subtitles/parts/part%2F1/install')
+  expect(calls[2][1].method).toBe('POST')
+  expect(calls[2][1].body).toBe(JSON.stringify({candidateId:'opaque-id'}))
+  expect(JSON.stringify(calls)).not.toContain('C:\\')
+ })
+})

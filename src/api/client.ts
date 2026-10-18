@@ -1,4 +1,4 @@
-import type { Capabilities, Item, ItemDetail, ItemPage, Library, PlaybackDecision, PlaybackSession, PlaybackState, ContinueWatchingPage, ServerInfo, User } from './types'
+import type { Capabilities, Item, ItemDetail, ItemPage, Library, PlaybackDecision, PlaybackSession, PlaybackState, ContinueWatchingPage, ServerInfo, User, SubtitleOverview, SubtitlePart, SubtitleInstallation } from './types'
 
 export class ApiError extends Error {
   constructor(public code: string, message: string, public status: number) { super(message); this.name = 'ApiError' }
@@ -55,6 +55,9 @@ export class ApiClient {
     return this.request<Library>('/api/v1/libraries','POST',{id,name,mediaType,rootPath})
   }
   scanLibrary(id:string){return this.request<Record<string,number>>('/api/v1/libraries/'+encodeURIComponent(id)+'/scan','POST',{})}
+  subtitleOverview(libraryId:string, offset=0, limit=25){return this.request<SubtitleOverview>('/api/v1/libraries/'+encodeURIComponent(libraryId)+'/subtitles?offset='+offset+'&limit='+limit)}
+  reviewSubtitles(partId:string){return this.request<SubtitlePart>('/api/v1/subtitles/parts/'+encodeURIComponent(partId))}
+  installSubtitle(partId:string, candidateId:string){return this.request<SubtitleInstallation>('/api/v1/subtitles/parts/'+encodeURIComponent(partId)+'/install','POST',{candidateId})}
   items(query: {libraryId?:string,kind?:Item['kind'],parentId?:string,q?:string,cursor?:string,limit?:number,watchState?:'all'|'unplayed'|'in_progress'|'watched'} = {}, signal?:AbortSignal) {
     const params = new URLSearchParams()
     for(const [k,v] of Object.entries(query)) if(v!==undefined && v!=='') params.set(k,String(v))
