@@ -12,6 +12,10 @@ Mediaphile has **one navigation system** across all form factors: the same left 
 
 Read the [owner-approved unified UI contract](docs/UNIFIED_UI_CONTRACT.md) and [Plex platform research](https://github.com/thebrazenbeard/mediaphile/blob/research/plex-platform-ux-20261007/docs/ux/PLEX_CROSS_PLATFORM_UI_RESEARCH_20261007.md). Plex is a behavior reference; its branding, source code, and platform-fragmented layouts are not reproduced.
 
+## Subtitle review (draft)
+
+The Settings library row includes an admin-only **Check subtitles** action with per-part text/OCR review and explicit local-candidate install. See [Subtitle review UI V1](docs/SUBTITLE_REVIEW_UI_V1.md). Online subtitle-provider downloads and unattended repair are not implemented.
+
 ## Implemented screens
 
 - Home, Movies, TV Shows, Search, library-aware detail and provenance, Settings, playback.

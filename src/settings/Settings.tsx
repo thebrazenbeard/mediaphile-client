@@ -1,10 +1,12 @@
 import {useEffect,useState,type FormEvent}from 'react'
 import {useAuth}from '../auth/AuthProvider'
 import type{Library}from '../api/types'
+import {SubtitleTools} from './SubtitleTools'
 export function Settings(){
  const{api,user}=useAuth()
  const[libraries,setLibraries]=useState<Library[]>([]),[name,setName]=useState(''),[rootPath,setRootPath]=useState(''),[kind,setKind]=useState<'movies'|'tv'>('movies'),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false)
  const[quality,setQuality]=useState(()=>localStorage.getItem('mediaphile-quality')??'auto')
+ const[subtitleLibrary,setSubtitleLibrary]=useState<string|null>(null)
  useEffect(()=>{api.libraries().then(r=>setLibraries(r.libraries)).catch(e=>setNotice(String(e)))},[api])
  async function create(e:FormEvent){
   e.preventDefault();setBusy(true);setNotice('')
@@ -20,7 +22,8 @@ export function Settings(){
  return <section className="settings-page"><div className="page-heading"><span className="eyebrow">YOUR MEDIAPHILE</span><h1>Settings</h1><p>Manage local media sources and player preferences.</p></div>
  <div className="settings-grid"><section className="settings-panel"><h2>Media Libraries</h2><p>These paths are on the server machine or a share mounted there—not paths from your browser.</p>
  {libraries.length===0&&<p className="muted">No configured libraries.</p>}
- {libraries.map(l=><div className="library-setting" key={l.id}><div><strong>{l.name}</strong><small>{l.mediaType.toUpperCase()} · {l.enabled?'ENABLED':'DISABLED'}</small></div>{user.admin&&<button className="outline" data-focusable disabled={busy} onClick={()=>void scan(l.id)}>↻ Scan</button>}</div>)}
+ {libraries.map(l=><div className="library-setting" key={l.id}><div><strong>{l.name}</strong><small>{l.mediaType.toUpperCase()} · {l.enabled?'ENABLED':'DISABLED'}</small></div>{user.admin&&<><button className="outline" data-focusable disabled={busy} onClick={()=>void scan(l.id)}>↻ Scan</button><button className="outline" data-focusable disabled={busy} onClick={()=>setSubtitleLibrary(subtitleLibrary===l.id?null:l.id)}>Check subtitles</button></>}</div>)}
+ {user.admin&&subtitleLibrary&&<SubtitleTools api={api} libraryId={subtitleLibrary}/>}
  {user.admin&&<form onSubmit={create} className="settings-form"><h3>Add Library</h3>
  <label>Library name<input required value={name} onChange={e=>setName(e.target.value)} placeholder="Family Movies"/></label>
  <label>Media type<select value={kind} onChange={e=>setKind(e.target.value as 'movies'|'tv')}><option value="movies">Movies</option><option value="tv">TV Shows</option></select></label>
