@@ -1,6 +1,6 @@
 import {useEffect,useState,type ChangeEvent} from 'react'
 import type {ApiClient} from '../api/client'
-import type {SubtitleOverview,SubtitlePart,SubtitleDecision,SubtitleQueuePage,PublishedSubtitleSearchReply} from '../api/types'
+import type {SubtitleOverview,SubtitlePart,SubtitleDecision,SubtitleQueuePage,PublishedSubtitleSearchReply,PublishedSubtitleStageReply} from '../api/types'
 
 export function SubtitleTools({api,libraryId}:{api:ApiClient;libraryId:string}){
  const[page,setPage]=useState<SubtitleOverview|null>(null)
@@ -13,10 +13,11 @@ export function SubtitleTools({api,libraryId}:{api:ApiClient;libraryId:string}){
  const[reason,setReason]=useState('')
  const[searchText,setSearchText]=useState('')
  const[published,setPublished]=useState<PublishedSubtitleSearchReply|null>(null)
+ const[staged,setStaged]=useState<PublishedSubtitleStageReply|null>(null)
 
  useEffect(()=>{
   let active=true
-  setPage(null);setSelected(null);setQueue(null);setPublished(null);setError('')
+  setPage(null);setSelected(null);setQueue(null);setPublished(null);setStaged(null);setError('')
   api.subtitleOverview(libraryId,offset).then(r=>{if(active)setPage(r)}).catch(e=>{if(active)setError(String(e))})
   return()=>{active=false}
  },[api,libraryId,offset])
@@ -29,7 +30,7 @@ export function SubtitleTools({api,libraryId}:{api:ApiClient;libraryId:string}){
    setSelected(inspected)
    setReason(inspected.decision?.reason??'')
    setSearchText(inspected.fileName.replace(/\.[^.]+$/,''))
-   setPublished(null)
+   setPublished(null);setStaged(null)
   }
  }
  async function refreshQueue(){
@@ -45,16 +46,25 @@ export function SubtitleTools({api,libraryId}:{api:ApiClient;libraryId:string}){
   try {
    const inspected=await api.reviewSubtitles(partId)
    setSelected(inspected);setReason(inspected.decision?.reason??'')
-   setSearchText(inspected.fileName.replace(/\.[^.]+$/,''));setPublished(null)
+   setSearchText(inspected.fileName.replace(/\.[^.]+$/,''));setPublished(null);setStaged(null)
   }catch(e){setError(String(e))}finally{setBusy(false)}
  }
  async function searchPublished(){
   if(!selected || selected.decision?.disposition==='skip'||selected.decision?.disposition==='review')return
-  setBusy(true);setError('');setNotice('');setPublished(null)
+  setBusy(true);setError('');setNotice('');setPublished(null);setStaged(null)
   try {
    const result=await api.searchPublishedSubtitles(selected.partId,searchText.trim())
    setPublished(result)
    setNotice('Search returned '+result.candidates.length+' published subtitle candidates. No files downloaded or installed.')
+  }catch(e){setError(String(e))}finally{setBusy(false)}
+ }
+ async function stagePublished(fileId:number){
+  if(!selected || (selected.decision?.disposition??'active')!=='active')return
+  setBusy(true);setError('');setNotice('');setStaged(null)
+  try{
+   const result=await api.stagePublishedSubtitle(selected.partId,fileId)
+   setStaged(result)
+   setNotice('Subtitle downloaded into review staging. No media sidecar was installed.')
   }catch(e){setError(String(e))}finally{setBusy(false)}
  }
  async function install(candidateId:string){
@@ -101,7 +111,7 @@ export function SubtitleTools({api,libraryId}:{api:ApiClient;libraryId:string}){
 
  return <section className="settings-panel" aria-label="Subtitle manager">
   <h3>Subtitle Manager</h3>
-  <p>Reviews English sidecars, local candidates, and embedded subtitles. Decisions survive server restarts. Skipping a video never counts as coverage or deletes media; manual provider metadata lookups require an explicitly configured server API key; automatic downloads and ASR remain disabled.</p>
+  <p>Reviews English sidecars, local candidates, and embedded subtitles. Decisions survive server restarts. Skipping never counts as coverage or deletes media. Provider lookups and individual review-staging downloads require explicit actions and server credentials; automatic processing and ASR remain disabled.</p>
   <label>Import previously approved exclusions (JSON)
    <input aria-label="Import subtitle exclusions JSON" type="file" accept=".json,application/json" disabled={busy} onChange={e=>void importManifest(e)}/>
   </label>
@@ -144,7 +154,7 @@ export function SubtitleTools({api,libraryId}:{api:ApiClient;libraryId:string}){
    </div>
    <div className="settings-panel">
     <h4>Published English subtitles (manual lookup)</h4>
-    <p>Searching sends the title?not the video or its full NAS path?to OpenSubtitles. Requires an API key configured on Mediaphile Server. Results are unverified metadata, not downloadable or installable in this phase.</p>
+    <p>Searching sends the title—not the video or its full NAS path—to OpenSubtitles. Each selected download may consume provider quota. Downloads go to private review staging only and cannot be installed from this list. Server credentials must be configured separately.</p>
     <label>Published subtitle search title
      <input aria-label="Published subtitle search title" type="text" maxLength={180} value={searchText} onChange={e=>setSearchText(e.target.value)}/>
     </label>
@@ -152,7 +162,16 @@ export function SubtitleTools({api,libraryId}:{api:ApiClient;libraryId:string}){
       onClick={()=>void searchPublished()}>Search published English subtitles</button>
     {published&&<div role="region" aria-label="Published subtitle candidates">
       <p>{published.candidates.length} candidates ? metadata only ? nothing downloaded or installed.</p>
-      {published.candidates.map(x=><p key={x.fileId}>{x.release || x.fileName} ? {x.language} ? {x.trusted?'trusted source':'unverified source'} ? file ID {x.fileId}</p>)}
+      {published.candidates.map(x=><div key={x.fileId}>
+       <p>{x.release || x.fileName} · {x.language} · {x.trusted?'trusted source':'unverified source'} · file ID {x.fileId}</p>
+       <button className="outline" disabled={busy||(selected.decision?.disposition??'active')!=='active'}
+        onClick={()=>void stagePublished(x.fileId)}>Download file {x.fileId} to review staging</button>
+      </div>)}
+    </div>}
+    {staged&&<div role="region" aria-label="Staged subtitle review">
+     <p>Unverified subtitle staged for review, not installed: file ID {staged.stage.fileId}, {staged.stage.audit.cues} cues, audit {staged.stage.audit.status}.</p>
+     <p>SHA-256: {staged.stage.sha256}. OCR flags: {staged.stage.audit.ocr.length}; timing warnings: {staged.stage.audit.warnings.length}.</p>
+     <p>Review release identity, audio synchronization and dialogue before any separate installation step.</p>
     </div>}
    </div>
    <p>Existing sidecars: {selected.review.existing.join(', ')||'none'}</p>

@@ -14,7 +14,7 @@ Read the [owner-approved unified UI contract](docs/UNIFIED_UI_CONTRACT.md) and [
 
 ## Subtitle review (draft)
 
-The Settings library row includes an admin-only **Check subtitles** action with per-part text/OCR review and explicit local-candidate install. See [Subtitle review UI V1](docs/SUBTITLE_REVIEW_UI_V1.md). Online subtitle-provider downloads and unattended repair are not implemented.
+The Settings library row includes an admin-only **Check subtitles** action with per-part text/OCR review and explicit local-candidate install. See [Subtitle review UI V1](docs/SUBTITLE_REVIEW_UI_V1.md). The native Subtitle Manager also supports explicit published-source lookup and a separate user-clicked download of a selected SRT to isolated server review staging. This does **not** install the downloaded subtitle or perform unattended repair; the server requires private OpenSubtitles credentials and a staging directory before the action can succeed.
 
 ## Implemented screens
 

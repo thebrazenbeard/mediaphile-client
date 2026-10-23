@@ -1,4 +1,4 @@
-import type { Capabilities, Item, ItemDetail, ItemPage, Library, PlaybackDecision, PlaybackSession, PlaybackState, ContinueWatchingPage, ServerInfo, User, SubtitleOverview, SubtitlePart, SubtitleInstallation, SubtitleDecision, SubtitleQueuePage, PublishedSubtitleSearchReply } from './types'
+import type { Capabilities, Item, ItemDetail, ItemPage, Library, PlaybackDecision, PlaybackSession, PlaybackState, ContinueWatchingPage, ServerInfo, User, SubtitleOverview, SubtitlePart, SubtitleInstallation, SubtitleDecision, SubtitleQueuePage, PublishedSubtitleSearchReply, PublishedSubtitleStageReply } from './types'
 
 export class ApiError extends Error {
   constructor(public code: string, message: string, public status: number) { super(message); this.name = 'ApiError' }
@@ -60,6 +60,9 @@ export class ApiClient {
   searchPublishedSubtitles(partId:string,query:string,year=0){
     return this.request<PublishedSubtitleSearchReply>('/api/v1/subtitles/parts/'+encodeURIComponent(partId)+'/published/search','POST',
       year>0?{query,year}:{query})
+  }
+  stagePublishedSubtitle(partId:string,fileId:number){
+    return this.request<PublishedSubtitleStageReply>('/api/v1/subtitles/parts/'+encodeURIComponent(partId)+'/published/stage','POST',{fileId})
   }
 
   setSubtitleDecision(partId:string,disposition:SubtitleDecision['disposition'],reason:string){

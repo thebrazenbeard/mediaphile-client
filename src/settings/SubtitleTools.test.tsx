@@ -29,7 +29,7 @@ describe('Subtitle Manager batch planning',()=>{
  })
 })
 
-it('requires a deliberate search click and never offers publication of provider metadata',async()=>{
+it('requires separate deliberate search and staging clicks without offering publication',async()=>{
  const api={
   subtitleOverview:vi.fn(async()=>({items:[{partId:'p1',fileName:'Example (2026).mkv',review:{
    existing:[],existingAudits:[],candidates:[],coverage:'missing'},decision:{disposition:'active',reason:''},
@@ -39,7 +39,10 @@ it('requires a deliberate search click and never offers publication of provider 
    nextAction:'search_published',embedded:[]})),
   searchPublishedSubtitles:vi.fn(async()=>({partId:'p1',provider:'opensubtitles',downloaded:false,published:false,
    note:'metadata only',candidates:[{provider:'opensubtitles',subtitleId:'123',fileId:455,
-   release:'Example.WEB',fileName:'Example.srt',language:'en',trusted:true,hearingImpaired:false,moviehashMatch:false}]}))
+   release:'Example.WEB',fileName:'Example.srt',language:'en',trusted:true,hearingImpaired:false,moviehashMatch:false}]})),
+  stagePublishedSubtitle:vi.fn(async()=>({partId:'p1',downloaded:true,published:false,note:'review',
+   stage:{provider:'opensubtitles',fileId:455,outputSrt:'C:\\Stage\\example.srt',sha256:'abc',readyForReview:true,
+    audit:{status:'ready',cues:12,sha256:'abc',ocr:[],warnings:[]}}}))
  } as unknown as ApiClient
  render(<SubtitleTools api={api} libraryId="library"/>)
  await waitFor(()=>expect(screen.getByText(/1 indexed media parts/)).toBeTruthy())
@@ -50,5 +53,10 @@ it('requires a deliberate search click and never offers publication of provider 
  await waitFor(()=>expect(screen.getByText(/Example.WEB/)).toBeTruthy())
  expect((api.searchPublishedSubtitles as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith('p1','Example (2026)')
  expect(screen.getByRole('region',{name:'Published subtitle candidates'}).textContent).toContain('nothing downloaded or installed')
+ expect((api.stagePublishedSubtitle as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled()
+ fireEvent.click(screen.getByRole('button',{name:/download file 455 to review staging/i}))
+ await waitFor(()=>expect(screen.getByRole('region',{name:'Staged subtitle review'}).textContent).toContain('12 cues'))
+ expect((api.stagePublishedSubtitle as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith('p1',455)
+ expect(screen.getByRole('region',{name:'Staged subtitle review'}).textContent).toContain('not installed')
  expect(screen.queryByRole('button',{name:/install published/i})).toBeNull()
 })

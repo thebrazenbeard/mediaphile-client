@@ -94,4 +94,23 @@ describe('Explicit published subtitle discovery',()=>{
   expect(calls[0][1].body).toBe(JSON.stringify({query:'A Film',year:2024}))
   expect(JSON.stringify(calls[0])).not.toContain('Api-Key')
  })
+ it('stages a selected file only when invoked and keeps provider secrets out of browser requests',async()=>{
+  const calls:Array<[string,RequestInit]> = []
+  const fetcher=vi.fn(async(url:string,init?:RequestInit)=>{
+   calls.push([url,init??{}])
+   return new Response(JSON.stringify({partId:'part',downloaded:true,published:false,note:'review',
+    stage:{provider:'opensubtitles',fileId:455,outputSrt:'/private/stage/test.srt',sha256:'abc',readyForReview:true,
+     audit:{status:'ready',cues:1,sha256:'abc',ocr:[],warnings:[]}}}),{status:201})
+  })
+  const api=new ApiClient('http://127.0.0.1:8097',fetcher as typeof fetch)
+  api.setToken('mediaphile-session')
+  expect(calls).toHaveLength(0)
+  const result=await api.stagePublishedSubtitle('part',455)
+  expect(result.published).toBe(false)
+  expect(calls[0][0]).toContain('/api/v1/subtitles/parts/part/published/stage')
+  expect(calls[0][1].method).toBe('POST')
+  expect(calls[0][1].body).toBe(JSON.stringify({fileId:455}))
+  expect(JSON.stringify(calls[0])).not.toContain('Api-Key')
+  expect(JSON.stringify(calls[0])).not.toContain('test-token')
+ })
 })

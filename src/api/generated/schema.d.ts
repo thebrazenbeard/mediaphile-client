@@ -465,6 +465,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/subtitles/parts/{partId}/published/stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Download one explicitly selected published SRT into isolated review staging; never install
+         * @description Admin-only. Requires configured OpenSubtitles API key, bearer token, and private staging root outside the media directory. Provider quota is spent on the explicit request. No media bytes are uploaded, no provider link is cached, no sidecar is published, and review remains mandatory.
+         */
+        post: operations["stagePublishedSubtitle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -769,6 +789,35 @@ export interface components {
             query?: string;
             imdbId?: string;
             year?: number;
+        };
+        PublishedSubtitleStageRequest: {
+            fileId: number;
+        };
+        PublishedSubtitleStageReply: {
+            partId: string;
+            stage: components["schemas"]["PublishedSubtitleStage"];
+            downloaded: boolean;
+            published: boolean;
+            note: string;
+        };
+        PublishedSubtitleStage: {
+            provider: string;
+            /** Format: int64 */
+            fileId: number;
+            outputSrt: string;
+            sha256: string;
+            audit: {
+                status: string;
+                cues: number;
+                sha256: string;
+                ocr: {
+                    token?: string;
+                    suggestion?: string;
+                    line?: number;
+                }[];
+                warnings: string[];
+            };
+            readyForReview: boolean;
         };
     };
     responses: never;
@@ -1626,6 +1675,67 @@ export interface operations {
                 content?: never;
             };
             /** @description No API key configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    stagePublishedSubtitle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishedSubtitleStageRequest"];
+            };
+        };
+        responses: {
+            /** @description Unverified SRT staged outside the media directory */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishedSubtitleStageReply"];
+                };
+            };
+            /** @description Invalid provider file ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Skipped or review-held media */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Provider quota exhausted */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Staging, validation, or provider failure; no media changes */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Download credentials or staging root missing */
             503: {
                 headers: {
                     [name: string]: unknown;

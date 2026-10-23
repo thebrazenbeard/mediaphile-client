@@ -43,3 +43,7 @@ export type PublishedSubtitleSearchReply={
  partId:string;provider:string;candidates:PublishedSubtitleCandidate[];
  downloaded:boolean;published:boolean;note:string
 }
+export type PublishedSubtitleStageReply={
+ partId:string;downloaded:boolean;published:false;note:string;
+ stage:{provider:string;fileId:number;outputSrt:string;sha256:string;audit:SubtitleAudit;readyForReview:boolean}
+}
