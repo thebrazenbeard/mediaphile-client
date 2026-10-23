@@ -445,6 +445,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/subtitles/parts/{partId}/published/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Explicit admin-only provider metadata lookup; no download or publish
+         * @description Only uses configured server OpenSubtitles API key and selected title or IMDb ID. Does not upload media or store credentials. Rate limit and missing-key errors are reported without retry.
+         */
+        post: operations["searchPublishedSubtitles"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -723,6 +743,32 @@ export interface components {
         SubtitleQueueRefreshRequest: {
             limit?: number;
             offset?: number;
+        };
+        PublishedSubtitleCandidate: {
+            provider: string;
+            subtitleId: string;
+            /** Format: int64 */
+            fileId: number;
+            release: string;
+            fileName: string;
+            language: string;
+            trusted: boolean;
+            hearingImpaired: boolean;
+            moviehashMatch: boolean;
+        };
+        PublishedSubtitleSearchReply: {
+            partId: string;
+            provider: string;
+            candidates: components["schemas"]["PublishedSubtitleCandidate"][];
+            downloaded: boolean;
+            published: boolean;
+            note: string;
+        };
+        PublishedSubtitleSearchRequest: {
+            /** @description Release title only; no full media path */
+            query?: string;
+            imdbId?: string;
+            year?: number;
         };
     };
     responses: never;
@@ -1538,6 +1584,53 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SubtitleQueuePage"];
                 };
+            };
+        };
+    };
+    searchPublishedSubtitles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishedSubtitleSearchRequest"];
+            };
+        };
+        responses: {
+            /** @description Published subtitle candidates, not verified synced subtitles */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishedSubtitleSearchReply"];
+                };
+            };
+            /** @description Skipped or review-held media cannot search */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description External provider quota */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No API key configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

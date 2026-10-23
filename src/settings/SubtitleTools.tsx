@@ -1,6 +1,6 @@
 import {useEffect,useState,type ChangeEvent} from 'react'
 import type {ApiClient} from '../api/client'
-import type {SubtitleOverview,SubtitlePart,SubtitleDecision,SubtitleQueuePage} from '../api/types'
+import type {SubtitleOverview,SubtitlePart,SubtitleDecision,SubtitleQueuePage,PublishedSubtitleSearchReply} from '../api/types'
 
 export function SubtitleTools({api,libraryId}:{api:ApiClient;libraryId:string}){
  const[page,setPage]=useState<SubtitleOverview|null>(null)
@@ -11,10 +11,12 @@ export function SubtitleTools({api,libraryId}:{api:ApiClient;libraryId:string}){
  const[error,setError]=useState('')
  const[notice,setNotice]=useState('')
  const[reason,setReason]=useState('')
+ const[searchText,setSearchText]=useState('')
+ const[published,setPublished]=useState<PublishedSubtitleSearchReply|null>(null)
 
  useEffect(()=>{
   let active=true
-  setPage(null);setSelected(null);setQueue(null);setError('')
+  setPage(null);setSelected(null);setQueue(null);setPublished(null);setError('')
   api.subtitleOverview(libraryId,offset).then(r=>{if(active)setPage(r)}).catch(e=>{if(active)setError(String(e))})
   return()=>{active=false}
  },[api,libraryId,offset])
@@ -26,6 +28,8 @@ export function SubtitleTools({api,libraryId}:{api:ApiClient;libraryId:string}){
    const inspected=await api.reviewSubtitles(partId)
    setSelected(inspected)
    setReason(inspected.decision?.reason??'')
+   setSearchText(inspected.fileName.replace(/\.[^.]+$/,''))
+   setPublished(null)
   }
  }
  async function refreshQueue(){
@@ -41,6 +45,16 @@ export function SubtitleTools({api,libraryId}:{api:ApiClient;libraryId:string}){
   try {
    const inspected=await api.reviewSubtitles(partId)
    setSelected(inspected);setReason(inspected.decision?.reason??'')
+   setSearchText(inspected.fileName.replace(/\.[^.]+$/,''));setPublished(null)
+  }catch(e){setError(String(e))}finally{setBusy(false)}
+ }
+ async function searchPublished(){
+  if(!selected || selected.decision?.disposition==='skip'||selected.decision?.disposition==='review')return
+  setBusy(true);setError('');setNotice('');setPublished(null)
+  try {
+   const result=await api.searchPublishedSubtitles(selected.partId,searchText.trim())
+   setPublished(result)
+   setNotice('Search returned '+result.candidates.length+' published subtitle candidates. No files downloaded or installed.')
   }catch(e){setError(String(e))}finally{setBusy(false)}
  }
  async function install(candidateId:string){
@@ -87,7 +101,7 @@ export function SubtitleTools({api,libraryId}:{api:ApiClient;libraryId:string}){
 
  return <section className="settings-panel" aria-label="Subtitle manager">
   <h3>Subtitle Manager</h3>
-  <p>Reviews English sidecars, local candidates, and embedded subtitles. Decisions survive server restarts. Skipping a video never counts as coverage or deletes media; online search, synchronization, and ASR automation are not enabled in this phase.</p>
+  <p>Reviews English sidecars, local candidates, and embedded subtitles. Decisions survive server restarts. Skipping a video never counts as coverage or deletes media; manual provider metadata lookups require an explicitly configured server API key; automatic downloads and ASR remain disabled.</p>
   <label>Import previously approved exclusions (JSON)
    <input aria-label="Import subtitle exclusions JSON" type="file" accept=".json,application/json" disabled={busy} onChange={e=>void importManifest(e)}/>
   </label>
@@ -127,6 +141,19 @@ export function SubtitleTools({api,libraryId}:{api:ApiClient;libraryId:string}){
     <button className="outline" disabled={busy} onClick={()=>void decide('skip')}>Skip subtitles</button>
     <button className="outline" disabled={busy} onClick={()=>void decide('review')}>Hold for review</button>
     <button className="outline" disabled={busy} onClick={()=>void decide('active')}>Restore active</button>
+   </div>
+   <div className="settings-panel">
+    <h4>Published English subtitles (manual lookup)</h4>
+    <p>Searching sends the title?not the video or its full NAS path?to OpenSubtitles. Requires an API key configured on Mediaphile Server. Results are unverified metadata, not downloadable or installable in this phase.</p>
+    <label>Published subtitle search title
+     <input aria-label="Published subtitle search title" type="text" maxLength={180} value={searchText} onChange={e=>setSearchText(e.target.value)}/>
+    </label>
+    <button className="outline" disabled={busy||!searchText.trim()||(selected.decision?.disposition??'active')!=='active'}
+      onClick={()=>void searchPublished()}>Search published English subtitles</button>
+    {published&&<div role="region" aria-label="Published subtitle candidates">
+      <p>{published.candidates.length} candidates ? metadata only ? nothing downloaded or installed.</p>
+      {published.candidates.map(x=><p key={x.fileId}>{x.release || x.fileName} ? {x.language} ? {x.trusted?'trusted source':'unverified source'} ? file ID {x.fileId}</p>)}
+    </div>}
    </div>
    <p>Existing sidecars: {selected.review.existing.join(', ')||'none'}</p>
    {selected.review.existingAudits.map(x=><p key={x.name}>Existing {x.name} ({x.language}): {x.status}. {x.audit?x.audit.ocr.length+' possible OCR errors':''} {x.reason}</p>)}

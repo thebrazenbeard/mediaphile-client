@@ -33,3 +33,13 @@ export type SubtitleQueueItem = {
  observedSize:number;observedModTimeNs:string;updatedAt?:string
 }
 export type SubtitleQueuePage={planned:number;items:SubtitleQueueItem[];total:number;offset:number;limit:number}
+
+
+export type PublishedSubtitleCandidate={
+ provider:string;subtitleId:string;fileId:number;release:string;fileName:string;
+ language:string;trusted:boolean;hearingImpaired:boolean;moviehashMatch:boolean
+}
+export type PublishedSubtitleSearchReply={
+ partId:string;provider:string;candidates:PublishedSubtitleCandidate[];
+ downloaded:boolean;published:boolean;note:string
+}

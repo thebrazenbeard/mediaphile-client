@@ -1,4 +1,4 @@
-import type { Capabilities, Item, ItemDetail, ItemPage, Library, PlaybackDecision, PlaybackSession, PlaybackState, ContinueWatchingPage, ServerInfo, User, SubtitleOverview, SubtitlePart, SubtitleInstallation, SubtitleDecision, SubtitleQueuePage } from './types'
+import type { Capabilities, Item, ItemDetail, ItemPage, Library, PlaybackDecision, PlaybackSession, PlaybackState, ContinueWatchingPage, ServerInfo, User, SubtitleOverview, SubtitlePart, SubtitleInstallation, SubtitleDecision, SubtitleQueuePage, PublishedSubtitleSearchReply } from './types'
 
 export class ApiError extends Error {
   constructor(public code: string, message: string, public status: number) { super(message); this.name = 'ApiError' }
@@ -57,6 +57,11 @@ export class ApiClient {
   scanLibrary(id:string){return this.request<Record<string,number>>('/api/v1/libraries/'+encodeURIComponent(id)+'/scan','POST',{})}
   subtitleOverview(libraryId:string, offset=0, limit=25){return this.request<SubtitleOverview>('/api/v1/libraries/'+encodeURIComponent(libraryId)+'/subtitles?offset='+offset+'&limit='+limit)}
   reviewSubtitles(partId:string){return this.request<SubtitlePart>('/api/v1/subtitles/parts/'+encodeURIComponent(partId))}
+  searchPublishedSubtitles(partId:string,query:string,year=0){
+    return this.request<PublishedSubtitleSearchReply>('/api/v1/subtitles/parts/'+encodeURIComponent(partId)+'/published/search','POST',
+      year>0?{query,year}:{query})
+  }
+
   setSubtitleDecision(partId:string,disposition:SubtitleDecision['disposition'],reason:string){
     return this.request<SubtitleDecision>('/api/v1/subtitles/parts/'+encodeURIComponent(partId)+'/decision','PUT',{disposition,reason})
   }

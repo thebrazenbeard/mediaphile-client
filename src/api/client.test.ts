@@ -76,3 +76,22 @@ describe('Subtitle batch recovery planner',()=>{
   expect((calls[0][1].headers as Record<string,string>).Authorization).toBe('Bearer session')
  })
 })
+
+describe('Explicit published subtitle discovery',()=>{
+ it('posts an opted-in title without a provider API key in the browser',async()=>{
+  const calls:Array<[string,RequestInit]>=[]
+  const fetcher=vi.fn(async(url:string,init?:RequestInit)=>{
+   calls.push([url,init??{}])
+   return new Response(JSON.stringify({partId:'part',provider:'opensubtitles',candidates:[],downloaded:false,published:false,note:'metadata only'}),{status:200})
+  })
+  const api=new ApiClient('http://127.0.0.1:8097',fetcher as typeof fetch)
+  api.setToken('session-only')
+  const result=await api.searchPublishedSubtitles('part','A Film',2024)
+  expect(result.downloaded).toBe(false)
+  expect(calls).toHaveLength(1)
+  expect(calls[0][0]).toContain('/api/v1/subtitles/parts/part/published/search')
+  expect(calls[0][1].method).toBe('POST')
+  expect(calls[0][1].body).toBe(JSON.stringify({query:'A Film',year:2024}))
+  expect(JSON.stringify(calls[0])).not.toContain('Api-Key')
+ })
+})
