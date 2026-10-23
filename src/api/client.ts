@@ -1,4 +1,4 @@
-import type { Capabilities, Item, ItemDetail, ItemPage, Library, PlaybackDecision, PlaybackSession, PlaybackState, ContinueWatchingPage, ServerInfo, User, SubtitleOverview, SubtitlePart, SubtitleInstallation, SubtitleDecision } from './types'
+import type { Capabilities, Item, ItemDetail, ItemPage, Library, PlaybackDecision, PlaybackSession, PlaybackState, ContinueWatchingPage, ServerInfo, User, SubtitleOverview, SubtitlePart, SubtitleInstallation, SubtitleDecision, SubtitleQueuePage } from './types'
 
 export class ApiError extends Error {
   constructor(public code: string, message: string, public status: number) { super(message); this.name = 'ApiError' }
@@ -59,6 +59,12 @@ export class ApiClient {
   reviewSubtitles(partId:string){return this.request<SubtitlePart>('/api/v1/subtitles/parts/'+encodeURIComponent(partId))}
   setSubtitleDecision(partId:string,disposition:SubtitleDecision['disposition'],reason:string){
     return this.request<SubtitleDecision>('/api/v1/subtitles/parts/'+encodeURIComponent(partId)+'/decision','PUT',{disposition,reason})
+  }
+  subtitleQueue(libraryId:string,limit=25,offset=0){
+    return this.request<SubtitleQueuePage>('/api/v1/libraries/'+encodeURIComponent(libraryId)+'/subtitles/queue?limit='+limit+'&offset='+offset)
+  }
+  refreshSubtitleQueue(libraryId:string,limit=25,offset=0){
+    return this.request<SubtitleQueuePage>('/api/v1/libraries/'+encodeURIComponent(libraryId)+'/subtitles/queue/refresh','POST',{limit,offset})
   }
   importSubtitleExclusions(manifest:{exclusions:Array<{video:string;reason:string}>}){
     return this.request<{imported:number;total:number}>('/api/v1/subtitles/decisions/import','POST',manifest)

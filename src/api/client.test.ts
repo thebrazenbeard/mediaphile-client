@@ -59,3 +59,20 @@ describe('Subtitle recovery decisions',()=>{
   expect((calls[1][1].headers as Record<string,string>).Authorization).toBe('Bearer private')
  })
 })
+
+describe('Subtitle batch recovery planner',()=>{
+ it('refreshes a bounded page and reads durable queue without writing subtitle media',async()=>{
+  const fetcher=vi.fn(async()=>new Response(JSON.stringify({planned:2,items:[],total:2,offset:0,limit:25}),{status:200}))
+  const api=new ApiClient('http://127.0.0.1:8097',fetcher as typeof fetch)
+  api.setToken('session')
+  await api.refreshSubtitleQueue('movies 1',25,0)
+  await api.subtitleQueue('movies 1',25,0)
+  const calls=fetcher.mock.calls as unknown as [string,RequestInit][]
+  expect(calls[0][0]).toContain('/api/v1/libraries/movies%201/subtitles/queue/refresh')
+  expect(calls[0][1].method).toBe('POST')
+  expect(calls[0][1].body).toBe(JSON.stringify({limit:25,offset:0}))
+  expect(calls[1][0]).toContain('/api/v1/libraries/movies%201/subtitles/queue?limit=25&offset=0')
+  expect(calls[1][1].method).toBe('GET')
+  expect((calls[0][1].headers as Record<string,string>).Authorization).toBe('Bearer session')
+ })
+})

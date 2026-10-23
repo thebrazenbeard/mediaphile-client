@@ -1,9 +1,10 @@
 import {useEffect,useState,type ChangeEvent} from 'react'
 import type {ApiClient} from '../api/client'
-import type {SubtitleOverview,SubtitlePart,SubtitleDecision} from '../api/types'
+import type {SubtitleOverview,SubtitlePart,SubtitleDecision,SubtitleQueuePage} from '../api/types'
 
 export function SubtitleTools({api,libraryId}:{api:ApiClient;libraryId:string}){
  const[page,setPage]=useState<SubtitleOverview|null>(null)
+ const[queue,setQueue]=useState<SubtitleQueuePage|null>(null)
  const[selected,setSelected]=useState<SubtitlePart|null>(null)
  const[offset,setOffset]=useState(0)
  const[busy,setBusy]=useState(false)
@@ -13,7 +14,7 @@ export function SubtitleTools({api,libraryId}:{api:ApiClient;libraryId:string}){
 
  useEffect(()=>{
   let active=true
-  setPage(null);setSelected(null);setError('')
+  setPage(null);setSelected(null);setQueue(null);setError('')
   api.subtitleOverview(libraryId,offset).then(r=>{if(active)setPage(r)}).catch(e=>{if(active)setError(String(e))})
   return()=>{active=false}
  },[api,libraryId,offset])
@@ -26,6 +27,14 @@ export function SubtitleTools({api,libraryId}:{api:ApiClient;libraryId:string}){
    setSelected(inspected)
    setReason(inspected.decision?.reason??'')
   }
+ }
+ async function refreshQueue(){
+  setBusy(true);setError('');setNotice('')
+  try {
+   const result=await api.refreshSubtitleQueue(libraryId,25,offset)
+   setQueue(result)
+   setNotice('Inspected '+result.planned+' indexed videos. Queue results are saved; no media was modified.')
+  }catch(e){setError(String(e))}finally{setBusy(false)}
  }
  async function inspect(partId:string){
   setBusy(true);setError('');setNotice('')
@@ -40,6 +49,7 @@ export function SubtitleTools({api,libraryId}:{api:ApiClient;libraryId:string}){
   try {
    const result=await api.installSubtitle(selected.partId,candidateId)
    setNotice('Installed new sidecar, SHA-256 '+result.sha256)
+   setQueue(null)
    await refresh(selected.partId)
   }catch(e){setError(String(e))}finally{setBusy(false)}
  }
@@ -52,6 +62,7 @@ export function SubtitleTools({api,libraryId}:{api:ApiClient;libraryId:string}){
    await api.setSubtitleDecision(selected.partId,disposition,rationale)
    setNotice(disposition==='skip'?'Video excluded from subtitle recovery (not counted as covered).':
      disposition==='review'?'Video placed in manual review.':'Video restored to active subtitle recovery.')
+   setQueue(null)
    await refresh(selected.partId)
   }catch(e){setError(String(e))}finally{setBusy(false)}
  }
@@ -67,6 +78,7 @@ export function SubtitleTools({api,libraryId}:{api:ApiClient;libraryId:string}){
    const payload=data as {exclusions:Array<{video:string;reason:string}>}
    const result=await api.importSubtitleExclusions({exclusions:payload.exclusions})
    setNotice('Imported '+result.imported+' new exclusions from '+result.total+' entries. Existing decisions were preserved.')
+   setQueue(null)
    await refresh(selected?.partId)
   }catch(e){setError(e instanceof Error?e.message:String(e))}finally{
    e.target.value='';setBusy(false)
@@ -80,6 +92,18 @@ export function SubtitleTools({api,libraryId}:{api:ApiClient;libraryId:string}){
    <input aria-label="Import subtitle exclusions JSON" type="file" accept=".json,application/json" disabled={busy} onChange={e=>void importManifest(e)}/>
   </label>
   {!page&&!error&&<p>Checking indexed media…</p>}
+  <div className="settings-form">
+   <button className="outline" disabled={busy||!page} onClick={()=>void refreshQueue()}>
+    Inspect current page into recovery queue
+   </button>
+  </div>
+  {queue&&<div role="region" aria-label="Subtitle recovery queue">
+   <p>Recovery queue: {queue.planned} inspected on this page, {queue.total} indexed media parts in the library. This is planning only; no downloads or file changes.</p>
+   {queue.items.map(item=><div className="library-setting" key={item.partId}>
+     <div><strong>{item.fileName}</strong><small>{item.action} · {item.coverage} · {item.disposition} · {item.candidateCount} local candidates</small></div>
+     <button className="outline" disabled={busy} onClick={()=>void inspect(item.partId)}>Inspect</button>
+   </div>)}
+  </div>}
   {page&&<><p>{page.total} indexed media parts · showing {page.items.length} from offset {offset}</p>
    {page.items.map(item=><div className="library-setting" key={item.partId}>
     <div>

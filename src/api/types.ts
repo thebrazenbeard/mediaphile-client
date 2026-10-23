@@ -24,3 +24,12 @@ export type SubtitleDecision = {partId:string;disposition:'active'|'skip'|'revie
 export type SubtitlePart = {partId:string;fileName:string;review:SubtitleReview;decision?:SubtitleDecision;nextAction?:string;embedded:Array<{index:number;codec:string;status:string;audit?:SubtitleAudit;reason?:string}>}
 export type SubtitleOverview = {items:SubtitlePart[];total:number;offset:number;limit:number}
 export type SubtitleInstallation = {destination:string;sha256:string;bytes:number;source:string}
+
+
+export type SubtitleQueueItem = {
+ partId:string;fileName:string;action:
+ 'excluded'|'manual_review'|'covered'|'inspect_existing'|'review_local_candidate'|'search_published';
+ coverage:string;disposition:SubtitleDecision['disposition'];candidateCount:number;
+ observedSize:number;observedModTimeNs:string;updatedAt?:string
+}
+export type SubtitleQueuePage={planned:number;items:SubtitleQueueItem[];total:number;offset:number;limit:number}
