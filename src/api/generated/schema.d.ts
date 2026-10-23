@@ -376,6 +376,115 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/subtitles/parts/{partId}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin-only read of durable per-video subtitle decision */
+        get: operations["getSubtitleDecision"];
+        /** Admin-only save skip/review/active policy without editing media */
+        put: operations["putSubtitleDecision"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/subtitles/decisions/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Atomically import prior owner-approved skips matched to exact indexed media paths. Existing decisions win. */
+        post: operations["importSubtitleExclusions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/libraries/{libraryId}/subtitles/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read persisted, advisory subtitle recovery queue for a library */
+        get: operations["getLibrarySubtitleQueue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/libraries/{libraryId}/subtitles/queue/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Inspect and persist up to 50 media subtitle decisions without writing media files */
+        post: operations["refreshLibrarySubtitleQueue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/subtitles/parts/{partId}/published/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Explicit admin-only provider metadata lookup; no download or publish
+         * @description Only uses configured server OpenSubtitles API key and selected title or IMDb ID. Does not upload media or store credentials. Rate limit and missing-key errors are reported without retry.
+         */
+        post: operations["searchPublishedSubtitles"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/subtitles/parts/{partId}/published/stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Download one explicitly selected published SRT into isolated review staging; never install
+         * @description Admin-only. Requires configured OpenSubtitles API key, bearer token, and private staging root outside the media directory. Provider quota is spent on the explicit request. No media bytes are uploaded, no provider link is cached, no sidecar is published, and review remains mandatory.
+         */
+        post: operations["stagePublishedSubtitle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -609,6 +718,106 @@ export interface components {
             item: components["schemas"]["Item"];
             resumeMs: number;
             lastPlayedAt: string | null;
+        };
+        /** @description Persistent subtitle recovery policy. Skip does not imply installed coverage. */
+        SubtitleDecision: {
+            partId: string;
+            /** @enum {string} */
+            disposition: "active" | "skip" | "review";
+            reason: string;
+            updatedAt?: string;
+        };
+        SubtitleDecisionUpdate: {
+            /** @enum {string} */
+            disposition: "active" | "skip" | "review";
+            reason: string;
+        };
+        SubtitleExclusionImport: {
+            exclusions: {
+                video: string;
+                reason: string;
+            }[];
+        };
+        SubtitleQueueItem: {
+            partId: string;
+            fileName: string;
+            /** @enum {string} */
+            action: "excluded" | "manual_review" | "covered" | "inspect_existing" | "review_local_candidate" | "search_published";
+            coverage: string;
+            /** @enum {string} */
+            disposition: "active" | "skip" | "review";
+            candidateCount: number;
+            /** Format: int64 */
+            observedSize: number;
+            /** @description Exact 64-bit media timestamp, string to avoid JavaScript precision loss */
+            observedModTimeNs: string;
+            updatedAt?: string;
+        };
+        SubtitleQueuePage: {
+            planned: number;
+            items: components["schemas"]["SubtitleQueueItem"][];
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        SubtitleQueueRefreshRequest: {
+            limit?: number;
+            offset?: number;
+        };
+        PublishedSubtitleCandidate: {
+            provider: string;
+            subtitleId: string;
+            /** Format: int64 */
+            fileId: number;
+            release: string;
+            fileName: string;
+            language: string;
+            trusted: boolean;
+            hearingImpaired: boolean;
+            moviehashMatch: boolean;
+        };
+        PublishedSubtitleSearchReply: {
+            partId: string;
+            provider: string;
+            candidates: components["schemas"]["PublishedSubtitleCandidate"][];
+            downloaded: boolean;
+            published: boolean;
+            note: string;
+        };
+        PublishedSubtitleSearchRequest: {
+            /** @description Release title only; no full media path */
+            query?: string;
+            imdbId?: string;
+            year?: number;
+        };
+        PublishedSubtitleStageRequest: {
+            fileId: number;
+        };
+        PublishedSubtitleStageReply: {
+            partId: string;
+            stage: components["schemas"]["PublishedSubtitleStage"];
+            downloaded: boolean;
+            published: boolean;
+            note: string;
+        };
+        PublishedSubtitleStage: {
+            provider: string;
+            /** Format: int64 */
+            fileId: number;
+            outputSrt: string;
+            sha256: string;
+            audit: {
+                status: string;
+                cues: number;
+                sha256: string;
+                ocr: {
+                    token?: string;
+                    suggestion?: string;
+                    line?: number;
+                }[];
+                warnings: string[];
+            };
+            readyForReview: boolean;
         };
     };
     responses: never;
@@ -1288,6 +1497,250 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ContinueWatchingPage"];
                 };
+            };
+        };
+    };
+    getSubtitleDecision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current policy; defaults to active */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubtitleDecision"];
+                };
+            };
+        };
+    };
+    putSubtitleDecision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubtitleDecisionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Saved policy */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubtitleDecision"];
+                };
+            };
+        };
+    };
+    importSubtitleExclusions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubtitleExclusionImport"];
+            };
+        };
+        responses: {
+            /** @description Number of newly imported decisions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        imported?: number;
+                        total?: number;
+                    };
+                };
+            };
+            /** @description Unknown media; entire import rejected */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getLibrarySubtitleQueue: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                libraryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cached or refreshed page. Not an installed subtitle guarantee. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubtitleQueuePage"];
+                };
+            };
+        };
+    };
+    refreshLibrarySubtitleQueue: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                libraryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubtitleQueueRefreshRequest"];
+            };
+        };
+        responses: {
+            /** @description Cached or refreshed page. Not an installed subtitle guarantee. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubtitleQueuePage"];
+                };
+            };
+        };
+    };
+    searchPublishedSubtitles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishedSubtitleSearchRequest"];
+            };
+        };
+        responses: {
+            /** @description Published subtitle candidates, not verified synced subtitles */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishedSubtitleSearchReply"];
+                };
+            };
+            /** @description Skipped or review-held media cannot search */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description External provider quota */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No API key configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    stagePublishedSubtitle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishedSubtitleStageRequest"];
+            };
+        };
+        responses: {
+            /** @description Unverified SRT staged outside the media directory */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishedSubtitleStageReply"];
+                };
+            };
+            /** @description Invalid provider file ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Skipped or review-held media */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Provider quota exhausted */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Staging, validation, or provider failure; no media changes */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Download credentials or staging root missing */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

@@ -1,4 +1,4 @@
-import type { Capabilities, Item, ItemDetail, ItemPage, Library, PlaybackDecision, PlaybackSession, PlaybackState, ContinueWatchingPage, ServerInfo, User, SubtitleOverview, SubtitlePart, SubtitleInstallation } from './types'
+import type { Capabilities, Item, ItemDetail, ItemPage, Library, PlaybackDecision, PlaybackSession, PlaybackState, ContinueWatchingPage, ServerInfo, User, SubtitleOverview, SubtitlePart, SubtitleInstallation, SubtitleDecision, SubtitleQueuePage, PublishedSubtitleSearchReply, PublishedSubtitleStageReply } from './types'
 
 export class ApiError extends Error {
   constructor(public code: string, message: string, public status: number) { super(message); this.name = 'ApiError' }
@@ -57,6 +57,26 @@ export class ApiClient {
   scanLibrary(id:string){return this.request<Record<string,number>>('/api/v1/libraries/'+encodeURIComponent(id)+'/scan','POST',{})}
   subtitleOverview(libraryId:string, offset=0, limit=25){return this.request<SubtitleOverview>('/api/v1/libraries/'+encodeURIComponent(libraryId)+'/subtitles?offset='+offset+'&limit='+limit)}
   reviewSubtitles(partId:string){return this.request<SubtitlePart>('/api/v1/subtitles/parts/'+encodeURIComponent(partId))}
+  searchPublishedSubtitles(partId:string,query:string,year=0){
+    return this.request<PublishedSubtitleSearchReply>('/api/v1/subtitles/parts/'+encodeURIComponent(partId)+'/published/search','POST',
+      year>0?{query,year}:{query})
+  }
+  stagePublishedSubtitle(partId:string,fileId:number){
+    return this.request<PublishedSubtitleStageReply>('/api/v1/subtitles/parts/'+encodeURIComponent(partId)+'/published/stage','POST',{fileId})
+  }
+
+  setSubtitleDecision(partId:string,disposition:SubtitleDecision['disposition'],reason:string){
+    return this.request<SubtitleDecision>('/api/v1/subtitles/parts/'+encodeURIComponent(partId)+'/decision','PUT',{disposition,reason})
+  }
+  subtitleQueue(libraryId:string,limit=25,offset=0){
+    return this.request<SubtitleQueuePage>('/api/v1/libraries/'+encodeURIComponent(libraryId)+'/subtitles/queue?limit='+limit+'&offset='+offset)
+  }
+  refreshSubtitleQueue(libraryId:string,limit=25,offset=0){
+    return this.request<SubtitleQueuePage>('/api/v1/libraries/'+encodeURIComponent(libraryId)+'/subtitles/queue/refresh','POST',{limit,offset})
+  }
+  importSubtitleExclusions(manifest:{exclusions:Array<{video:string;reason:string}>}){
+    return this.request<{imported:number;total:number}>('/api/v1/subtitles/decisions/import','POST',manifest)
+  }
   installSubtitle(partId:string, candidateId:string){return this.request<SubtitleInstallation>('/api/v1/subtitles/parts/'+encodeURIComponent(partId)+'/install','POST',{candidateId})}
   items(query: {libraryId?:string,kind?:Item['kind'],parentId?:string,q?:string,cursor?:string,limit?:number,watchState?:'all'|'unplayed'|'in_progress'|'watched'} = {}, signal?:AbortSignal) {
     const params = new URLSearchParams()
