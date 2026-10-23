@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node api.js && vite --host 127.0.0.1",
-    "build": "node api.js && tsc --noEmit && vite build",
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest",

@@ -42,3 +42,20 @@ describe('Subtitle API',()=>{
   expect(JSON.stringify(calls)).not.toContain('C:\\')
  })
 })
+
+describe('Subtitle recovery decisions',()=>{
+ it('saves explicit skips by opaque media part ID and imports prior exclusions',async()=>{
+  const fetcher=vi.fn(async()=>new Response(JSON.stringify({partId:'part 1',disposition:'skip',reason:'intro'}),{status:200}))
+  const api=new ApiClient('http://127.0.0.1:8097',fetcher as typeof fetch)
+  api.setToken('private')
+  await api.setSubtitleDecision('part 1','skip','intro')
+  await api.importSubtitleExclusions({exclusions:[{video:'/volume1/TV Shows/Show/Intro.mkv',reason:'approved skip'}]})
+  const calls=fetcher.mock.calls as unknown as [string,RequestInit][]
+  expect(calls[0][0]).toBe('http://127.0.0.1:8097/api/v1/subtitles/parts/part%201/decision')
+  expect(calls[0][1].method).toBe('PUT')
+  expect(calls[0][1].body).toBe(JSON.stringify({disposition:'skip',reason:'intro'}))
+  expect(calls[1][0]).toMatch(/\/api\/v1\/subtitles\/decisions\/import$/)
+  expect(calls[1][1].method).toBe('POST')
+  expect((calls[1][1].headers as Record<string,string>).Authorization).toBe('Bearer private')
+ })
+})

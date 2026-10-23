@@ -376,6 +376,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/subtitles/parts/{partId}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin-only read of durable per-video subtitle decision */
+        get: operations["getSubtitleDecision"];
+        /** Admin-only save skip/review/active policy without editing media */
+        put: operations["putSubtitleDecision"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/subtitles/decisions/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Atomically import prior owner-approved skips matched to exact indexed media paths. Existing decisions win. */
+        post: operations["importSubtitleExclusions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -609,6 +644,25 @@ export interface components {
             item: components["schemas"]["Item"];
             resumeMs: number;
             lastPlayedAt: string | null;
+        };
+        /** @description Persistent subtitle recovery policy. Skip does not imply installed coverage. */
+        SubtitleDecision: {
+            partId: string;
+            /** @enum {string} */
+            disposition: "active" | "skip" | "review";
+            reason: string;
+            updatedAt?: string;
+        };
+        SubtitleDecisionUpdate: {
+            /** @enum {string} */
+            disposition: "active" | "skip" | "review";
+            reason: string;
+        };
+        SubtitleExclusionImport: {
+            exclusions: {
+                video: string;
+                reason: string;
+            }[];
         };
     };
     responses: never;
@@ -1288,6 +1342,88 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ContinueWatchingPage"];
                 };
+            };
+        };
+    };
+    getSubtitleDecision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current policy; defaults to active */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubtitleDecision"];
+                };
+            };
+        };
+    };
+    putSubtitleDecision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubtitleDecisionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Saved policy */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubtitleDecision"];
+                };
+            };
+        };
+    };
+    importSubtitleExclusions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubtitleExclusionImport"];
+            };
+        };
+        responses: {
+            /** @description Number of newly imported decisions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        imported?: number;
+                        total?: number;
+                    };
+                };
+            };
+            /** @description Unknown media; entire import rejected */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
