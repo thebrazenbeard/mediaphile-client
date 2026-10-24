@@ -1,0 +1,7 @@
+# Subtitle review UI V1
+
+In Settings, an authenticated local administrator selects **Check subtitles** next to an indexed library. The resulting panel pages media parts, shows whether an English sidecar or English embedded stream is known, and offers local candidates. Selecting **Review** performs a deeper SRT and embedded-text inspection with warnings and possible `l`/`I` OCR mistakes in both directions. The **Install verified sidecar** action is visible only for ready candidates, is explicit and server-authorized, and cannot overwrite an existing sidecar.
+
+The client never reads media files directly, handles filesystem paths, applies text substitutions, or claims actual speech alignment. The server revalidates candidate ID, content and destination before an exclusive-create write. Unsupported embedded formats, timing anomalies and unclear language must remain visibly unresolved.
+
+The later Subtitle Manager adds a separate, explicit **published English subtitle metadata search**. It sends the title to a server-mediated provider query only after a user click; provider credentials remain server-side. A second click can ask the server to download one selected result into private **review staging**, subject to the provider and server configuration. Staging is not installation, does not replace a sidecar, and does not authorize automated publication. ASR fallback and unattended repair remain unimplemented.
