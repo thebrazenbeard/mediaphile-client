@@ -19,6 +19,8 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+      - name: Reject concealed editor startup source
+        run: node scripts/editor-startup-security.test.mjs
       - name: Install dependencies
         run: npm ci
       - name: Typecheck
