@@ -1,4 +1,4 @@
-import type { Capabilities, Item, ItemDetail, ItemPage, Library, PlaybackDecision, PlaybackSession, PlaybackState, ContinueWatchingPage, ServerInfo, User, SubtitleOverview, SubtitlePart, SubtitleInstallation, SubtitleDecision, SubtitleQueuePage, PublishedSubtitleSearchReply, PublishedSubtitleStageReply } from './types'
+import type { Capabilities, Item, ItemDetail, ItemPage, Library, PlaybackDecision, PlaybackSession, PlaybackState, ContinueWatchingPage, ServerInfo, User, SubtitleOverview, SubtitlePart, SubtitleInstallation, SubtitleDecision, SubtitleQueuePage, PublishedSubtitleSearchReply, PublishedSubtitleStageReply, PublishedSubtitleStageReview, PublishedSubtitleInstallation } from './types'
 
 export class ApiError extends Error {
   constructor(public code: string, message: string, public status: number) { super(message); this.name = 'ApiError' }
@@ -63,6 +63,14 @@ export class ApiClient {
   }
   stagePublishedSubtitle(partId:string,fileId:number){
     return this.request<PublishedSubtitleStageReply>('/api/v1/subtitles/parts/'+encodeURIComponent(partId)+'/published/stage','POST',{fileId})
+  }
+  reviewPublishedSubtitleStage(partId:string,stageId:string){
+    return this.request<PublishedSubtitleStageReview>('/api/v1/subtitles/parts/'+encodeURIComponent(partId)+'/published/stages/'+encodeURIComponent(stageId))
+  }
+  installPublishedSubtitleStage(partId:string,stageId:string,expectedSha256:string){
+    return this.request<PublishedSubtitleInstallation>(
+      '/api/v1/subtitles/parts/'+encodeURIComponent(partId)+'/published/stages/'+encodeURIComponent(stageId)+'/install',
+      'POST',{expectedSha256,confirmReviewed:true})
   }
 
   setSubtitleDecision(partId:string,disposition:SubtitleDecision['disposition'],reason:string){
