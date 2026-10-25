@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process'
-import { randomBytes } from 'node:crypto'
-import { existsSync, mkdtempSync, mkdirSync, rmSync } from 'node:fs'
+import { createHash, randomBytes } from 'node:crypto'
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -65,6 +65,10 @@ async function waitForServer(baseURL) {
 async function main() {
   if (!existsSync(join(serverDir, 'go.mod'))) throw new Error('Set MEDIAPHILE_SERVER_DIR to the checked-out mediaphile-server source directory')
   if (!existsSync(join(clientDir, 'dist', 'index.html'))) throw new Error('Run npm run build first')
+  const pin = JSON.parse(readFileSync(join(clientDir, 'api', 'contract-source.json'), 'utf8'))
+  const canonicalAPI = readFileSync(join(serverDir, 'api', 'openapi.yaml'), 'utf8').replace(/\r\n/g, '\n')
+  const contractDigest = createHash('sha256').update(canonicalAPI).digest('hex')
+  if (contractDigest !== pin.sha256) throw new Error('Server API does not match the Client pinned OpenAPI snapshot')
   const mediaDir = join(fixtureDir, 'media')
   mkdirSync(mediaDir)
   const moviePath = join(mediaDir, 'Synthetic Film (2026).mp4')
@@ -72,11 +76,13 @@ async function main() {
     '-hide_banner', '-loglevel', 'error', '-y',
     '-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=24',
     '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=44100',
-    '-t', '7', '-c:v', 'libx264', '-preset', 'ultrafast',
+    '-t', '20', '-c:v', 'libx264', '-preset', 'ultrafast',
     '-pix_fmt', 'yuv420p', '-c:a', 'aac',
     '-movflags', '+faststart', moviePath,
   ])
   run('ffprobe', ['-v', 'error', '-show_format', '-of', 'json', moviePath])
+  const mediaNamesBefore = readdirSync(mediaDir).sort()
+  const movieDigestBefore = createHash('sha256').update(readFileSync(moviePath)).digest('hex')
   const binary = join(fixtureDir, process.platform === 'win32' ? 'mediaphile-test.exe' : 'mediaphile-test')
   run('go', ['build', '-o', binary, './cmd/mediaphile-server'], { cwd: serverDir })
   const port = await freePort()
@@ -117,6 +123,35 @@ async function main() {
   const page = await api(baseURL, '/api/v1/items?libraryId=fixture-movies&kind=movie', { token })
   if (page.items?.length !== 1 || page.items[0].title !== 'Synthetic Film') throw new Error('Synthetic media did not appear in the real catalog')
   const itemId = page.items[0].id
+
+  // Exercise actual Server subtitle routes with no provider credentials or downloads.
+  // All changes remain in the throwaway catalog, never the user's media library.
+  const overview = await api(baseURL, '/api/v1/libraries/fixture-movies/subtitles?limit=1&offset=0', { token })
+  if (overview.total !== 1 || overview.items?.length !== 1) throw new Error('Real subtitle overview did not return the synthetic movie')
+  const partId = overview.items[0].partId
+  if (!partId || overview.items[0].review?.coverage !== 'missing' || overview.items[0].nextAction !== 'search_published')
+    throw new Error('Synthetic media subtitle coverage/action was not identified')
+  const reviewed = await api(baseURL, `/api/v1/subtitles/parts/${encodeURIComponent(partId)}`, { token })
+  if (reviewed.partId !== partId || reviewed.review?.coverage !== 'missing')
+    throw new Error('Real per-part subtitle review disagreed with overview')
+  const planned = await api(baseURL, '/api/v1/libraries/fixture-movies/subtitles/queue/refresh', {
+    method: 'POST', token, data: { limit: 1, offset: 0 },
+  })
+  if (planned.total !== 1 || planned.planned !== 1 || planned.items?.[0]?.partId !== partId || planned.items[0].action !== 'search_published')
+    throw new Error('Real subtitle recovery planning returned an unexpected queue item')
+  const queue = await api(baseURL, '/api/v1/libraries/fixture-movies/subtitles/queue?limit=1&offset=0', { token })
+  if (queue.total !== 1 || queue.items?.[0]?.partId !== partId)
+    throw new Error('Real subtitle queue did not persist its advisory plan')
+  const excluded = await api(baseURL, `/api/v1/subtitles/parts/${encodeURIComponent(partId)}/decision`, {
+    method: 'PUT', token, data: { disposition: 'skip', reason: 'Synthetic integration fixture' },
+  })
+  if (excluded.disposition !== 'skip') throw new Error('Real subtitle exclusion was not saved')
+  const held = await api(baseURL, `/api/v1/subtitles/parts/${encodeURIComponent(partId)}`, { token })
+  if (held.nextAction !== 'excluded') throw new Error('Real subtitle review ignored the persisted exclusion')
+  const restored = await api(baseURL, `/api/v1/subtitles/parts/${encodeURIComponent(partId)}/decision`, {
+    method: 'PUT', token, data: { disposition: 'active', reason: '' },
+  })
+  if (restored.disposition !== 'active') throw new Error('Synthetic subtitle decision could not be restored')
   const decision = await api(baseURL, '/api/v1/playback/decide', {
     method: 'POST', token,
     data: { itemId, capabilities: {
@@ -150,7 +185,10 @@ async function main() {
   if (browser.stdout) process.stdout.write(browser.stdout)
   if (browser.stderr) process.stderr.write(browser.stderr)
   if (browser.error || browser.status !== 0) throw new Error('Real-server browser acceptance test failed')
-  process.stdout.write('PASS: real server, ffprobe scan, API browse, byte ranges, and authenticated browser playback\n')
+  if (JSON.stringify(readdirSync(mediaDir).sort()) !== JSON.stringify(mediaNamesBefore) ||
+      createHash('sha256').update(readFileSync(moviePath)).digest('hex') !== movieDigestBefore)
+    throw new Error('Subtitle planning/review unexpectedly changed the synthetic media directory')
+  process.stdout.write('PASS: real server, ffprobe scan, subtitle overview/queue/review/decision, byte ranges, and authenticated browser playback\n')
 }
 
 try {
