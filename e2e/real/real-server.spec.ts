@@ -47,10 +47,51 @@ test('real LAN server scans, authenticates, browses and plays synthetic video', 
   expect(progress.positionMs).toBeGreaterThanOrEqual(1000)
 
   await page.getByRole('button', { name: /EXIT PLAYER/ }).click()
+  const authorization = await progressResponse.request().headerValue('authorization')
+  if (!authorization) throw new Error('Synthetic progress authorization was missing')
+  const base = process.env.MEDIAPHILE_E2E_BASE_URL
+  const stateReply = await page.request.get(`${base}/api/v1/users/me/playback/${encodeURIComponent(itemId)}`, { headers: { authorization } })
+  expect(stateReply.status()).toBe(200)
+  const state = await stateReply.json()
+  expect(state.resumeMs).toBeGreaterThanOrEqual(1000)
+  expect(state.completed).toBe(false)
   await page.getByRole('link', { name: 'Home', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Continue Watching' })).toBeVisible()
   const resumeLink = page.getByRole('link', { name: 'Resume Synthetic Film' })
   await expect(resumeLink).toBeVisible()
   await resumeLink.click()
   await expect(page.getByLabel('Playing Synthetic Film')).toBeVisible()
+})
+
+test('real Subtitle Manager reviews and plans synthetic media without downloading subtitles', async ({ page }) => {
+  const username = process.env.MEDIAPHILE_E2E_USERNAME
+  const password = process.env.MEDIAPHILE_E2E_PASSWORD
+  if (!username || !password) throw new Error('Real-server fixture credentials are missing')
+
+  await page.goto('/')
+  await page.getByLabel('Username').fill(username)
+  await page.getByLabel('Password').fill(password)
+  await page.getByRole('button', { name: /Enter Mediaphile/ }).click()
+  await page.getByRole('link', { name: 'Settings', exact: true }).click()
+  await page.getByRole('button', { name: 'Check subtitles' }).click()
+  const manager = page.getByRole('region', { name: 'Subtitle manager' })
+  await expect(manager.getByText(/1 indexed media parts.*offset 0/)).toBeVisible()
+  await expect(manager.getByText(/missing.*search_published.*active/)).toBeVisible()
+
+  await manager.getByRole('button', { name: 'Inspect current page into recovery queue' }).click()
+  const queue = manager.getByRole('region', { name: 'Subtitle recovery queue' })
+  await expect(queue).toContainText('Recovery queue: 1 inspected')
+  await expect(queue).toContainText('planning only; no downloads or file changes')
+
+  await manager.getByRole('button', { name: 'Review' }).click()
+  await expect(manager).toContainText('Coverage: missing')
+  await manager.getByLabel('Recovery decision reason').fill('Synthetic UI acceptance test')
+  await manager.getByRole('button', { name: 'Skip subtitles' }).click()
+  await expect(manager).toContainText('next action: excluded')
+  await expect(manager).toContainText('decision: skip')
+
+  await manager.getByRole('button', { name: 'Restore active' }).click()
+  await expect(manager).toContainText('next action: search_published')
+  await expect(manager).toContainText('decision: active')
+  await expect(manager.getByRole('button', { name: 'Search published English subtitles' })).toBeVisible()
 })
