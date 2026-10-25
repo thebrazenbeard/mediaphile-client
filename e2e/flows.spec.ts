@@ -166,3 +166,64 @@ test('home Continue Watching is driven by authenticated server playback state',a
  await page.getByRole('link',{name:/Resume Arrival/}).click()
  await expect(page.getByLabel('Playing Arrival')).toBeVisible()
 })
+
+test('published subtitle install requires matching preview digest and explicit review confirmation',async({page})=>{
+ await fakeServer(page)
+ const stageId='a'.repeat(32),sha256='b'.repeat(64),otherSha='c'.repeat(64)
+ const partId='part 1'
+ const part={partId,fileName:'Example.mkv',review:{
+  existing:[],existingAudits:[],candidates:[],coverage:'missing'},
+  decision:{disposition:'active',reason:''},nextAction:'search_published',embedded:[]}
+ const audit=(sha:string)=>({status:'ready',cues:1,sha256:sha,ocr:[],warnings:[]})
+ let previews=0
+ const installationBodies:unknown[]=[]
+ await page.route('**/api/v1/libraries/movies/subtitles?**',route=>route.fulfill({
+  contentType:'application/json',body:JSON.stringify({items:[part],total:1,limit:25,offset:0})
+ }))
+ await page.route('**/api/v1/subtitles/parts/**',async route=>{
+  const request=route.request(),path=new URL(request.url()).pathname,method=request.method()
+  const json=(value:unknown,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(value)})
+  if(path.endsWith('/published/search')&&method==='POST')return json({partId,provider:'opensubtitles',
+   downloaded:false,published:false,note:'metadata only',candidates:[{provider:'opensubtitles',subtitleId:'sub',
+   fileId:42,release:'Example.WEB',fileName:'Example.srt',language:'en',trusted:true,
+   hearingImpaired:false,moviehashMatch:false}]})
+  if(path.endsWith('/published/stage')&&method==='POST')return json({partId,downloaded:true,published:false,
+   note:'review',stage:{provider:'opensubtitles',fileId:42,stageId,sha256,audit:audit(sha256),readyForReview:true}},201)
+  if(path.endsWith('/published/stages/'+stageId)&&method==='GET'){
+   previews++
+   const digest=previews===1?otherSha:sha256
+   return json({partId,provider:'opensubtitles',fileId:42,stageId,sha256:digest,audit:audit(digest),
+    readyForReview:true,published:false,text:'1\n00:00:01,000 --> 00:00:02,000\nHello from review\n<img src=x onerror=alert(1)>'})
+  }
+  if(path.endsWith('/published/stages/'+stageId+'/install')&&method==='POST'){
+   installationBodies.push(request.postDataJSON())
+   return json({destinationName:'Example.en.srt',sha256,bytes:66,source:'opensubtitles',alreadyInstalled:false},201)
+  }
+  if(method==='GET')return json(part)
+  return json({error:{code:'NOT_FOUND',message:'Unmocked subtitle operation'}},404)
+ })
+ await login(page)
+ await page.getByRole('link',{name:'Settings',exact:true}).click()
+ await page.getByRole('button',{name:'Check subtitles'}).first().click()
+ await page.getByRole('button',{name:'Review',exact:true}).click()
+ await page.getByRole('button',{name:'Search published English subtitles'}).click()
+ await page.getByRole('button',{name:/Download file 42 to review staging/}).click()
+ await expect(page.getByRole('button',{name:'Preview staged subtitle for manual review'})).toBeVisible()
+ expect(installationBodies).toHaveLength(0)
+ await page.getByRole('button',{name:'Preview staged subtitle for manual review'}).click()
+ await expect(page.getByRole('alert')).toContainText('changed since staging')
+ await expect(page.getByRole('button',{name:'Install reviewed staged subtitle'})).toHaveCount(0)
+ expect(installationBodies).toHaveLength(0)
+ await page.getByRole('button',{name:'Preview staged subtitle for manual review'}).click()
+ const preview=page.getByRole('region',{name:'Staged subtitle text preview'})
+ await expect(preview).toContainText('Hello from review')
+ await expect(preview.locator('img')).toHaveCount(0)
+ const install=page.getByRole('button',{name:'Install reviewed staged subtitle'})
+ await expect(install).toBeDisabled()
+ await page.getByRole('checkbox',{name:/I reviewed the release, dialogue, and timing/}).check()
+ await expect(install).toBeEnabled()
+ await install.click()
+ await expect(page.getByRole('status')).toContainText('Installed reviewed subtitle')
+ expect(installationBodies).toEqual([{expectedSha256:sha256,confirmReviewed:true}])
+ expect(previews).toBe(2)
+})
