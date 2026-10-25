@@ -38,7 +38,9 @@ function rejectKnownUnsafeBlobs(directory, signatures = knownUnsafeBlobsBySize) 
 test('pinned server API snapshot matches its recorded source digest', () => {
   const pin = JSON.parse(readFileSync(join(root, 'api', 'contract-source.json'), 'utf8'))
   assert.match(pin.commit, /^[a-f0-9]{40}$/)
-  const digest = createHash('sha256').update(readFileSync(join(root, 'api', 'openapi.snapshot.yaml'))).digest('hex')
+  // Git stores the OpenAPI snapshot with LF; Windows worktrees may have CRLF.
+  const source = readFileSync(join(root, 'api', 'openapi.snapshot.yaml'), 'utf8').replace(/\r\n/g, '\n')
+  const digest = createHash('sha256').update(source).digest('hex')
   assert.equal(digest, pin.sha256)
 })
 
