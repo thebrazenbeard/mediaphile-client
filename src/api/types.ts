@@ -45,5 +45,10 @@ export type PublishedSubtitleSearchReply={
 }
 export type PublishedSubtitleStageReply={
  partId:string;downloaded:boolean;published:false;note:string;
- stage:{provider:string;fileId:number;outputSrt:string;sha256:string;audit:SubtitleAudit;readyForReview:boolean}
+ stage:{provider:string;fileId:number;stageId:string;sha256:string;audit:SubtitleAudit;readyForReview:boolean}
 }
+export type PublishedSubtitleStageReview={
+ partId:string;stageId:string;provider:string;fileId:number;sha256:string;
+ audit:SubtitleAudit;text:string;readyForReview:boolean;published:false
+}
+export type PublishedSubtitleInstallation={destinationName:string;sha256:string;bytes:number;source:string;alreadyInstalled:boolean}

@@ -485,6 +485,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/subtitles/parts/{partId}/published/stages/{stageId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin-only bounded full SRT review; no installation or provider call */
+        get: operations["reviewStagedPublishedSubtitle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/subtitles/parts/{partId}/published/stages/{stageId}/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin-only explicit review-confirmed atomic no-overwrite sidecar publication */
+        post: operations["manuallyInstallStagedPublishedSubtitle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -804,7 +838,7 @@ export interface components {
             provider: string;
             /** Format: int64 */
             fileId: number;
-            outputSrt: string;
+            stageId: string;
             sha256: string;
             audit: {
                 status: string;
@@ -818,6 +852,31 @@ export interface components {
                 warnings: string[];
             };
             readyForReview: boolean;
+        };
+        PublishedSubtitleReview: {
+            partId: string;
+            stageId: string;
+            provider: string;
+            /** Format: int64 */
+            fileId: number;
+            sha256: string;
+            audit: components["schemas"]["PublishedSubtitleStage"]["audit"];
+            text: string;
+            readyForReview: boolean;
+            published: boolean;
+        };
+        PublishedSubtitleInstallRequest: {
+            expectedSha256: string;
+            /** @enum {boolean} */
+            confirmReviewed: true;
+        };
+        PublishedSubtitleInstallReply: {
+            destinationName: string;
+            sha256: string;
+            /** Format: int64 */
+            bytes: number;
+            source: string;
+            alreadyInstalled: boolean;
         };
     };
     responses: never;
@@ -1737,6 +1796,114 @@ export interface operations {
             };
             /** @description Download credentials or staging root missing */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    reviewStagedPublishedSubtitle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partId: string;
+                stageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bounded subtitle text, integrity and audit metadata; Cache-Control no-store */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishedSubtitleReview"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Admin required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Stage absent, stale, tampered, or bound to another media part */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    manuallyInstallStagedPublishedSubtitle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partId: string;
+                stageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishedSubtitleInstallRequest"];
+            };
+        };
+        responses: {
+            /** @description Identical sidecar already present; no new publication */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishedSubtitleInstallReply"];
+                };
+            };
+            /** @description New sidecar published */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishedSubtitleInstallReply"];
+                };
+            };
+            /** @description Invalid request body */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Admin required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Review not confirmed, candidate changed, policy hold, or sidecar conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

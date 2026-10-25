@@ -99,7 +99,7 @@ describe('Explicit published subtitle discovery',()=>{
   const fetcher=vi.fn(async(url:string,init?:RequestInit)=>{
    calls.push([url,init??{}])
    return new Response(JSON.stringify({partId:'part',downloaded:true,published:false,note:'review',
-    stage:{provider:'opensubtitles',fileId:455,outputSrt:'/private/stage/test.srt',sha256:'abc',readyForReview:true,
+    stage:{provider:'opensubtitles',fileId:455,stageId:'a'.repeat(32),sha256:'b'.repeat(64),readyForReview:true,
      audit:{status:'ready',cues:1,sha256:'abc',ocr:[],warnings:[]}}}),{status:201})
   })
   const api=new ApiClient('http://127.0.0.1:8097',fetcher as typeof fetch)
@@ -112,5 +112,26 @@ describe('Explicit published subtitle discovery',()=>{
   expect(calls[0][1].body).toBe(JSON.stringify({fileId:455}))
   expect(JSON.stringify(calls[0])).not.toContain('Api-Key')
   expect(JSON.stringify(calls[0])).not.toContain('test-token')
+ })
+ it('requires separate read and explicit acknowledged install calls, using only an opaque stage ID',async()=>{
+  const calls:Array<[string,RequestInit]>=[]
+  const fetcher=vi.fn(async(url:string,init?:RequestInit)=>{
+   calls.push([url,init??{}])
+   return new Response(JSON.stringify({partId:'part/1',stageId:'a'.repeat(32),sha256:'b'.repeat(64),text:'review me'}),{status:200})
+  })
+  const api=new ApiClient('http://127.0.0.1:8097',fetcher as typeof fetch)
+  api.setToken('mediaphile-session')
+  expect(calls).toHaveLength(0)
+  await api.reviewPublishedSubtitleStage('part/1','a'.repeat(32))
+  expect(calls).toHaveLength(1)
+  expect(calls[0][0]).toContain('/parts/part%2F1/published/stages/'+ 'a'.repeat(32))
+  expect(calls[0][1].method).toBe('GET')
+  await api.installPublishedSubtitleStage('part/1','a'.repeat(32),'b'.repeat(64))
+  expect(calls).toHaveLength(2)
+  expect(calls[1][0]).toContain('/parts/part%2F1/published/stages/'+ 'a'.repeat(32)+'/install')
+  expect(calls[1][1].method).toBe('POST')
+  expect(calls[1][1].body).toBe(JSON.stringify({expectedSha256:'b'.repeat(64),confirmReviewed:true}))
+  expect(JSON.stringify(calls)).not.toContain('Api-Key')
+  expect(JSON.stringify(calls)).not.toContain('outputSrt')
  })
 })

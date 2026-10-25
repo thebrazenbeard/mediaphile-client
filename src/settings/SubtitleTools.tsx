@@ -1,6 +1,6 @@
-import {useEffect,useState,type ChangeEvent} from 'react'
+import {useEffect,useRef,useState,type ChangeEvent} from 'react'
 import type {ApiClient} from '../api/client'
-import type {SubtitleOverview,SubtitlePart,SubtitleDecision,SubtitleQueuePage,PublishedSubtitleSearchReply,PublishedSubtitleStageReply} from '../api/types'
+import type {SubtitleOverview,SubtitlePart,SubtitleDecision,SubtitleQueuePage,PublishedSubtitleSearchReply,PublishedSubtitleStageReply,PublishedSubtitleStageReview} from '../api/types'
 
 export function SubtitleTools({api,libraryId}:{api:ApiClient;libraryId:string}){
  const[page,setPage]=useState<SubtitleOverview|null>(null)
@@ -14,58 +14,108 @@ export function SubtitleTools({api,libraryId}:{api:ApiClient;libraryId:string}){
  const[searchText,setSearchText]=useState('')
  const[published,setPublished]=useState<PublishedSubtitleSearchReply|null>(null)
  const[staged,setStaged]=useState<PublishedSubtitleStageReply|null>(null)
+ const[preview,setPreview]=useState<PublishedSubtitleStageReview|null>(null)
+ const[reviewConfirmed,setReviewConfirmed]=useState(false)
+ const scopeEpoch=useRef(0)
 
  useEffect(()=>{
   let active=true
-  setPage(null);setSelected(null);setQueue(null);setPublished(null);setStaged(null);setError('')
+  scopeEpoch.current++
+  setPage(null);setSelected(null);setQueue(null);setPublished(null);setStaged(null);setPreview(null);setReviewConfirmed(false);setError('');setNotice('');setBusy(false)
   api.subtitleOverview(libraryId,offset).then(r=>{if(active)setPage(r)}).catch(e=>{if(active)setError(String(e))})
   return()=>{active=false}
  },[api,libraryId,offset])
 
  async function refresh(partId?:string){
+  const epoch=scopeEpoch.current
   const next=await api.subtitleOverview(libraryId,offset)
+  if(epoch!==scopeEpoch.current)return
   setPage(next)
   if(partId){
    const inspected=await api.reviewSubtitles(partId)
+   if(epoch!==scopeEpoch.current)return
    setSelected(inspected)
    setReason(inspected.decision?.reason??'')
    setSearchText(inspected.fileName.replace(/\.[^.]+$/,''))
-   setPublished(null);setStaged(null)
+   setPublished(null);setStaged(null);setPreview(null);setReviewConfirmed(false)
   }
  }
  async function refreshQueue(){
+  const epoch=scopeEpoch.current
   setBusy(true);setError('');setNotice('')
   try {
    const result=await api.refreshSubtitleQueue(libraryId,25,offset)
+   if(epoch!==scopeEpoch.current)return
    setQueue(result)
    setNotice('Inspected '+result.planned+' indexed videos. Queue results are saved; no media was modified.')
-  }catch(e){setError(String(e))}finally{setBusy(false)}
+  }catch(e){if(epoch===scopeEpoch.current)setError(String(e))}finally{if(epoch===scopeEpoch.current)setBusy(false)}
  }
  async function inspect(partId:string){
+  const epoch=scopeEpoch.current
   setBusy(true);setError('');setNotice('')
   try {
    const inspected=await api.reviewSubtitles(partId)
+   if(epoch!==scopeEpoch.current)return
    setSelected(inspected);setReason(inspected.decision?.reason??'')
-   setSearchText(inspected.fileName.replace(/\.[^.]+$/,''));setPublished(null);setStaged(null)
-  }catch(e){setError(String(e))}finally{setBusy(false)}
+   setSearchText(inspected.fileName.replace(/\.[^.]+$/,''));setPublished(null);setStaged(null);setPreview(null);setReviewConfirmed(false)
+  }catch(e){if(epoch===scopeEpoch.current)setError(String(e))}finally{if(epoch===scopeEpoch.current)setBusy(false)}
  }
  async function searchPublished(){
   if(!selected || selected.decision?.disposition==='skip'||selected.decision?.disposition==='review')return
-  setBusy(true);setError('');setNotice('');setPublished(null);setStaged(null)
+  const epoch=scopeEpoch.current
+  setBusy(true);setError('');setNotice('');setPublished(null);setStaged(null);setPreview(null);setReviewConfirmed(false)
   try {
    const result=await api.searchPublishedSubtitles(selected.partId,searchText.trim())
+   if(epoch!==scopeEpoch.current)return
    setPublished(result)
    setNotice('Search returned '+result.candidates.length+' published subtitle candidates. No files downloaded or installed.')
-  }catch(e){setError(String(e))}finally{setBusy(false)}
+  }catch(e){if(epoch===scopeEpoch.current)setError(String(e))}finally{if(epoch===scopeEpoch.current)setBusy(false)}
  }
  async function stagePublished(fileId:number){
   if(!selected || (selected.decision?.disposition??'active')!=='active')return
-  setBusy(true);setError('');setNotice('');setStaged(null)
+  const epoch=scopeEpoch.current,partId=selected.partId
+  setBusy(true);setError('');setNotice('');setStaged(null);setPreview(null);setReviewConfirmed(false)
   try{
-   const result=await api.stagePublishedSubtitle(selected.partId,fileId)
+   const result=await api.stagePublishedSubtitle(partId,fileId)
+   if(epoch!==scopeEpoch.current)return
+   if(result.partId!==partId||!/^([0-9a-f]{32})$/.test(result.stage.stageId)||
+      !/^[0-9a-f]{64}$/.test(result.stage.sha256))throw new Error('Server returned an invalid staged subtitle identity.')
    setStaged(result)
    setNotice('Subtitle downloaded into review staging. No media sidecar was installed.')
-  }catch(e){setError(String(e))}finally{setBusy(false)}
+  }catch(e){if(epoch===scopeEpoch.current)setError(String(e))}finally{if(epoch===scopeEpoch.current)setBusy(false)}
+ }
+ async function previewPublishedStage(){
+  if(!selected||!staged)return
+  const epoch=scopeEpoch.current,partId=selected.partId,stageId=staged.stage.stageId,expectedSha=staged.stage.sha256
+  setBusy(true);setError('');setNotice('');setPreview(null);setReviewConfirmed(false)
+  try{
+   const result=await api.reviewPublishedSubtitleStage(partId,stageId)
+   if(epoch!==scopeEpoch.current)return
+   if(result.partId!==partId||result.stageId!==stageId||result.sha256!==expectedSha||
+      result.audit.sha256!==expectedSha||result.published){
+    throw new Error('Staged subtitle changed since staging. Download and review the candidate again.')
+   }
+   setPreview(result)
+   setNotice('Review the complete staged subtitle against the media before confirming installation. No sidecar has been installed.')
+  }catch(e){if(epoch===scopeEpoch.current)setError(e instanceof Error?e.message:String(e))}finally{if(epoch===scopeEpoch.current)setBusy(false)}
+ }
+ async function installPublishedStage(){
+  if(!selected||!staged||!preview||!reviewConfirmed||!staged.stage.readyForReview||
+     !preview.readyForReview||preview.audit.status!=='ready'||
+     preview.partId!==selected.partId||preview.stageId!==staged.stage.stageId||
+     preview.sha256!==staged.stage.sha256)return
+  const epoch=scopeEpoch.current,partId=selected.partId,stageId=preview.stageId,sha=preview.sha256
+  setBusy(true);setError('');setNotice('')
+  try{
+   const result=await api.installPublishedSubtitleStage(partId,stageId,sha)
+   if(epoch!==scopeEpoch.current)return
+   setQueue(null);setPreview(null);setReviewConfirmed(false);setStaged(null)
+   try{await refresh(partId)}catch{
+    if(epoch===scopeEpoch.current)setError('Installation was accepted, but the media inventory could not be refreshed. Inspect coverage before taking another action.')
+   }
+   if(epoch!==scopeEpoch.current)return
+   setNotice((result.alreadyInstalled?'Reviewed subtitle was already installed':'Installed reviewed subtitle')+', SHA-256 '+result.sha256)
+  }catch(e){if(epoch===scopeEpoch.current)setError(e instanceof Error?e.message:String(e))}finally{if(epoch===scopeEpoch.current)setBusy(false)}
  }
  async function install(candidateId:string){
   if(!selected)return
@@ -154,7 +204,7 @@ export function SubtitleTools({api,libraryId}:{api:ApiClient;libraryId:string}){
    </div>
    <div className="settings-panel">
     <h4>Published English subtitles (manual lookup)</h4>
-    <p>Searching sends the title—not the video or its full NAS path—to OpenSubtitles. Each selected download may consume provider quota. Downloads go to private review staging only and cannot be installed from this list. Server credentials must be configured separately.</p>
+    <p>Searching sends the title—not the video or its full NAS path—to OpenSubtitles. Each selected download may consume provider quota. Downloads go to private review staging, then require a separate preview and explicit human confirmation before installation. Server credentials must be configured separately.</p>
     <label>Published subtitle search title
      <input aria-label="Published subtitle search title" type="text" maxLength={180} value={searchText} onChange={e=>setSearchText(e.target.value)}/>
     </label>
@@ -172,6 +222,19 @@ export function SubtitleTools({api,libraryId}:{api:ApiClient;libraryId:string}){
      <p>Unverified subtitle staged for review, not installed: file ID {staged.stage.fileId}, {staged.stage.audit.cues} cues, audit {staged.stage.audit.status}.</p>
      <p>SHA-256: {staged.stage.sha256}. OCR flags: {staged.stage.audit.ocr.length}; timing warnings: {staged.stage.audit.warnings.length}.</p>
      <p>Review release identity, audio synchronization and dialogue before any separate installation step.</p>
+     <button className="outline" disabled={busy} onClick={()=>void previewPublishedStage()}>Preview staged subtitle for manual review</button>
+     {preview&&<div role="region" aria-label="Staged subtitle text preview">
+      <p>Review dialogue against the media. A structural audit alone cannot verify the correct release or synchronization.</p>
+      <pre style={{whiteSpace:'pre-wrap',maxHeight:'20rem',overflow:'auto'}}>{preview.text}</pre>
+      {preview.readyForReview&&preview.audit.status==='ready'?<>
+       <label><input type="checkbox" checked={reviewConfirmed} disabled={busy}
+        onChange={e=>setReviewConfirmed(e.target.checked)}/>
+        I reviewed the release, dialogue, and timing against the media
+       </label>
+       <button className="outline" disabled={busy||!reviewConfirmed}
+        onClick={()=>void installPublishedStage()}>Install reviewed staged subtitle</button>
+      </>:<p>Structural review is unresolved. Installation is blocked.</p>}
+     </div>}
     </div>}
    </div>
    <p>Existing sidecars: {selected.review.existing.join(', ')||'none'}</p>
