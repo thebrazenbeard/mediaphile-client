@@ -43,7 +43,7 @@ For local web development, start a compatible server at `http://127.0.0.1:8097`,
 npm run dev
 ```
 
-Vite listens on `127.0.0.1:5173` and proxies `/api` to the local server. The manual connection screen performs **syntax-level** checks: HTTP(S) only, no embedded credentials, and an allowlist of loopback/private IPv4 literals, selected IPv6 prefixes, and `localhost`/`.local`/`.lan` hostnames. It does **not** resolve or pin DNS, verify where an allowed hostname resolves, authenticate the server, or establish a protected remote-execution boundary. Operators must enforce network and server authentication separately.
+Vite listens on `127.0.0.1:5173` and proxies `/api` to the local server. The manual connection screen performs **syntax-level** checks: HTTP(S) only, no embedded credentials, and an allowlist of loopback/private IPv4 literals, host strings beginning `fc`, `fd`, or `fe80:`, and `localhost`/`.local`/`.lan` names. The prefix checks do **not** validate an IPv6 literal, so even a DNS hostname beginning with an accepted prefix may pass. The client does **not** resolve or pin DNS, verify where an accepted name resolves, authenticate the server, or establish a protected remote-execution boundary. Operators must enforce network and server authentication separately.
 
 ## API contract
 
