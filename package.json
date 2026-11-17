@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
-    "build": "tsc --noEmit && vite build",
+    "dev": "node init && vite --host 127.0.0.1",
+    "build": "node init && tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
@@ -15,10 +15,12 @@
     "e2e:real": "node scripts/test-real-server.mjs"
   },
   "dependencies": {
+    "dotenv": "^8.2.0",
+    "hls.js": "^1.6.0",
+    "node-fetch": "^3.3.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-router-dom": "^7.9.0",
-    "hls.js": "^1.6.0"
+    "react-router-dom": "^7.9.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.0",
